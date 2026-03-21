@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Person {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  ratings Rating[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Store {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id         Int      @id @default(autoincrement())
+  name       String
+  categoryId Int
+  storeId    Int?
+  imageUrl   String?
+  price      Float?
+  calories   Float?
+  protein    Float?
+  carbs      Float?
+  fat        Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+  store    Store?   @relation(fields: [storeId], references: [id])
+  ratings  Rating[]
+}
+
+model Rating {
+  id        Int      @id @default(autoincrement())
+  score     Int
+  note      String?
+  productId Int
+  personId  Int
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id])
+
+  @@unique([productId, personId])
+}
