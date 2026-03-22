@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Star, Store, Tag, ImageIcon } from "lucide-react"
+import { Star, Store, Tag, ImageIcon, GitCompareArrows } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -16,6 +16,9 @@ interface ProductCardProps {
     store: { id: number; name: string } | null
     ratings: { score: number }[]
   }
+  compareMode?: boolean
+  isCompareSelected?: boolean
+  onCompareToggle?: (id: number) => void
 }
 
 function getAvgRating(ratings: { score: number }[]): number | null {
@@ -48,61 +51,94 @@ function getCategoryColor(name: string) {
   return colors[Math.abs(hash) % colors.length]
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, compareMode, isCompareSelected, onCompareToggle }: ProductCardProps) {
   const avg = getAvgRating(product.ratings)
 
-  return (
-    <Link href={`/products/${product.id}`} className="group">
-      <Card className="overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:ring-1 hover:ring-ring/10">
-        <div className="relative">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            />
-          ) : (
-            <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-              <ImageIcon className="size-10 text-muted-foreground/25" />
-            </div>
-          )}
+  const cardContent = (
+    <Card className={cn(
+      "overflow-hidden shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:ring-1 hover:ring-ring/10",
+      isCompareSelected && "ring-2 ring-primary shadow-md"
+    )}>
+      <div className="relative">
+        {product.imageUrl ? (
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="aspect-[4/3] w-full object-contain bg-muted/30 transition-transform duration-300 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+            <ImageIcon className="size-10 text-muted-foreground/25" />
+          </div>
+        )}
 
-          {avg !== null && (
-            <div
-              className={cn(
-                "absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ring-1 backdrop-blur-sm",
-                getRatingColor(avg)
-              )}
-            >
-              <Star className="size-3 fill-current" />
-              {avg}
-            </div>
+        {avg !== null && (
+          <div
+            className={cn(
+              "absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ring-1 backdrop-blur-sm",
+              getRatingColor(avg)
+            )}
+          >
+            <Star className="size-3 fill-current" />
+            {avg}
+          </div>
+        )}
+
+        {compareMode && (
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onCompareToggle?.(product.id)
+            }}
+            className={cn(
+              "absolute top-2.5 left-2.5 flex size-7 items-center justify-center rounded-full transition-all",
+              isCompareSelected
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm"
+            )}
+          >
+            <GitCompareArrows className="size-3.5" />
+          </button>
+        )}
+      </div>
+
+      <CardContent className="space-y-2.5 p-3.5">
+        <h3 className="font-semibold leading-snug line-clamp-2">{product.name}</h3>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className={cn("border-0 text-[0.7rem]", getCategoryColor(product.category.name))}>
+            <Tag className="size-2.5" />
+            {product.category.name}
+          </Badge>
+          {product.store && (
+            <Badge variant="outline" className="text-[0.7rem]">
+              <Store className="size-2.5" />
+              {product.store.name}
+            </Badge>
           )}
         </div>
 
-        <CardContent className="space-y-2.5 p-3.5">
-          <h3 className="font-semibold leading-snug line-clamp-2">{product.name}</h3>
+        {product.price !== null && (
+          <p className="text-sm font-medium text-muted-foreground">
+            {product.price.toFixed(2)} zł
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="secondary" className={cn("border-0 text-[0.7rem]", getCategoryColor(product.category.name))}>
-              <Tag className="size-2.5" />
-              {product.category.name}
-            </Badge>
-            {product.store && (
-              <Badge variant="outline" className="text-[0.7rem]">
-                <Store className="size-2.5" />
-                {product.store.name}
-              </Badge>
-            )}
-          </div>
+  if (compareMode) {
+    return (
+      <div className="group cursor-pointer" onClick={() => onCompareToggle?.(product.id)}>
+        {cardContent}
+      </div>
+    )
+  }
 
-          {product.price !== null && (
-            <p className="text-sm font-medium text-muted-foreground">
-              {product.price.toFixed(2)} zł
-            </p>
-          )}
-        </CardContent>
-      </Card>
+  return (
+    <Link href={`/products/${product.id}`} className="group">
+      {cardContent}
     </Link>
   )
 }

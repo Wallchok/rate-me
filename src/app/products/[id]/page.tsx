@@ -290,7 +290,7 @@ export default function ProductPage({
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full rounded-xl object-cover max-h-72 shadow-sm"
+            className="w-full rounded-xl object-contain bg-muted/30 max-h-72 shadow-sm"
           />
         ) : (
           <div className="flex h-48 w-full items-center justify-center rounded-xl bg-gradient-to-br from-muted to-muted/50">

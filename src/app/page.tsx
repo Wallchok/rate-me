@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Plus, Download, Package, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Download, Package, Loader2, GitCompareArrows, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { ProductCard } from "@/components/product-card";
 import { ProductFilters, type SortOption } from "@/components/product-filters";
 import { ProductForm, type ProductFormData } from "@/components/product-form";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface Person {
   id: number;
@@ -40,6 +42,7 @@ interface Product {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -50,10 +53,15 @@ export default function HomePage() {
   const [newPersonName, setNewPersonName] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Compare
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<number[]>([]);
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
   const [selectedStoreIds, setSelectedStoreIds] = useState<number[]>([]);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("date");
 
   const fetchAll = useCallback(async () => {
@@ -78,6 +86,25 @@ export default function HomePage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  function toggleCompare(id: number) {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((i) => i !== id);
+      if (prev.length >= 4) {
+        toast.error("Maksymalnie 4 produkty do porównania");
+        return prev;
+      }
+      return [...prev, id];
+    });
+  }
+
+  function goToCompare() {
+    if (compareIds.length < 2) {
+      toast.error("Wybierz co najmniej 2 produkty");
+      return;
+    }
+    router.push(`/compare?ids=${compareIds.join(",")}`);
+  }
 
   async function handleAddProduct(data: ProductFormData) {
     let categoryId = data.categoryId;
@@ -165,7 +192,14 @@ export default function HomePage() {
       result = result.filter((p) => selectedCategoryIds.includes(p.category.id));
     }
     if (selectedStoreIds.length > 0) {
-      result = result.filter((p) => p.store !== null && selectedStoreIds.includes(p.store.id));
+      result = result.filter(
+        (p) => p.store !== null && selectedStoreIds.includes(p.store.id)
+      );
+    }
+    if (selectedPersonIds.length > 0) {
+      result = result.filter((p) =>
+        p.ratings.some((r) => selectedPersonIds.includes(r.personId))
+      );
     }
 
     result.sort((a, b) => {
@@ -186,7 +220,7 @@ export default function HomePage() {
     });
 
     return result;
-  }, [products, searchQuery, selectedCategoryIds, selectedStoreIds, sortBy]);
+  }, [products, searchQuery, selectedCategoryIds, selectedStoreIds, selectedPersonIds, sortBy]);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -200,9 +234,7 @@ export default function HomePage() {
         {/* Toolbar */}
         <div className="flex items-center gap-2">
           <Dialog open={personDialogOpen} onOpenChange={setPersonDialogOpen}>
-            <DialogTrigger
-              render={<Button variant="outline" size="sm" />}
-            >
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
               <Plus className="size-4" />
               <span className="hidden sm:inline">Dodaj osobę</span>
               <span className="sm:hidden">Osoba</span>
@@ -229,6 +261,18 @@ export default function HomePage() {
               </form>
             </DialogContent>
           </Dialog>
+
+          <Button
+            variant={compareMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setCompareMode(!compareMode);
+              if (compareMode) setCompareIds([]);
+            }}
+          >
+            <GitCompareArrows className="size-4" />
+            <span className="hidden sm:inline">Porównaj</span>
+          </Button>
 
           <div className="flex-1" />
 
@@ -262,12 +306,15 @@ export default function HomePage() {
         <ProductFilters
           categories={categories}
           stores={stores}
+          persons={persons}
           selectedCategoryIds={selectedCategoryIds}
           selectedStoreIds={selectedStoreIds}
+          selectedPersonIds={selectedPersonIds}
           sortBy={sortBy}
           searchQuery={searchQuery}
           onCategoryChange={setSelectedCategoryIds}
           onStoreChange={setSelectedStoreIds}
+          onPersonChange={setSelectedPersonIds}
           onSortChange={setSortBy}
           onSearchChange={setSearchQuery}
         />
@@ -280,13 +327,30 @@ export default function HomePage() {
           </div>
         ) : filteredProducts.length > 0 ? (
           <>
-            <p className="text-xs text-muted-foreground">
-              {filteredProducts.length}{" "}
-              {filteredProducts.length === 1 ? "produkt" : filteredProducts.length < 5 ? "produkty" : "produktów"}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {filteredProducts.length}{" "}
+                {filteredProducts.length === 1
+                  ? "produkt"
+                  : filteredProducts.length < 5
+                    ? "produkty"
+                    : "produktów"}
+              </p>
+              {compareMode && (
+                <p className="text-xs text-primary font-medium">
+                  — wybierz 2-4 produkty do porównania
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  compareMode={compareMode}
+                  isCompareSelected={compareIds.includes(product.id)}
+                  onCompareToggle={toggleCompare}
+                />
               ))}
             </div>
           </>
@@ -298,7 +362,8 @@ export default function HomePage() {
             <div className="text-center space-y-1.5">
               <p className="font-semibold text-lg">Brak produktów</p>
               <p className="text-sm text-muted-foreground max-w-xs">
-                Dodaj swój pierwszy produkt klikając przycisk + w prawym dolnym rogu
+                Dodaj swój pierwszy produkt klikając przycisk + w prawym dolnym
+                rogu
               </p>
             </div>
           </div>
@@ -312,30 +377,59 @@ export default function HomePage() {
         )}
       </main>
 
+      {/* Compare floating bar */}
+      {compareMode && compareIds.length > 0 && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-full bg-primary px-5 py-3 text-primary-foreground shadow-xl shadow-primary/25 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
+          <span className="text-sm font-medium">
+            {compareIds.length} {compareIds.length === 1 ? "produkt" : compareIds.length < 5 ? "produkty" : "produktów"}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={goToCompare}
+            disabled={compareIds.length < 2}
+            className="rounded-full"
+          >
+            Porównaj
+          </Button>
+          <button
+            onClick={() => {
+              setCompareIds([]);
+              setCompareMode(false);
+            }}
+            className="flex size-6 items-center justify-center rounded-full hover:bg-primary-foreground/20 transition-colors"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
       {/* FAB */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogTrigger
-          render={
-            <Button
-              size="lg"
-              className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg shadow-primary/25 size-14 hover:shadow-xl hover:shadow-primary/30 hover:scale-105 transition-all duration-200"
+      {!compareMode && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger
+            render={
+              <Button
+                size="lg"
+                className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg shadow-primary/25 size-14 hover:shadow-xl hover:shadow-primary/30 hover:scale-105 transition-all duration-200"
+              />
+            }
+          >
+            <Plus className="size-6" />
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Dodaj produkt</DialogTitle>
+            </DialogHeader>
+            <ProductForm
+              categories={categories}
+              stores={stores}
+              onSubmit={handleAddProduct}
+              submitLabel="Dodaj produkt"
             />
-          }
-        >
-          <Plus className="size-6" />
-        </DialogTrigger>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Dodaj produkt</DialogTitle>
-          </DialogHeader>
-          <ProductForm
-            categories={categories}
-            stores={stores}
-            onSubmit={handleAddProduct}
-            submitLabel="Dodaj produkt"
-          />
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

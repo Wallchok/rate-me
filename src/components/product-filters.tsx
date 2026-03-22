@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, X, ChevronDown, Tag, Store } from "lucide-react"
+import { Search, X, ChevronDown, Tag, Store, User } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -24,15 +24,23 @@ interface StoreType {
 
 export type SortOption = "name" | "rating" | "price" | "date"
 
+interface Person {
+  id: number
+  name: string
+}
+
 interface ProductFiltersProps {
   categories: Category[]
   stores: StoreType[]
+  persons: Person[]
   selectedCategoryIds: number[]
   selectedStoreIds: number[]
+  selectedPersonIds: number[]
   sortBy: SortOption
   searchQuery: string
   onCategoryChange: (ids: number[]) => void
   onStoreChange: (ids: number[]) => void
+  onPersonChange: (ids: number[]) => void
   onSortChange: (sort: SortOption) => void
   onSearchChange: (query: string) => void
 }
@@ -151,23 +159,28 @@ function SortSelect({
 export function ProductFilters({
   categories,
   stores,
+  persons,
   selectedCategoryIds,
   selectedStoreIds,
+  selectedPersonIds,
   sortBy,
   searchQuery,
   onCategoryChange,
   onStoreChange,
+  onPersonChange,
   onSortChange,
   onSearchChange,
 }: ProductFiltersProps) {
   const hasActiveFilters =
     selectedCategoryIds.length > 0 ||
     selectedStoreIds.length > 0 ||
+    selectedPersonIds.length > 0 ||
     searchQuery !== ""
 
   function clearFilters() {
     onCategoryChange([])
     onStoreChange([])
+    onPersonChange([])
     onSearchChange("")
     onSortChange("date")
   }
@@ -208,6 +221,16 @@ export function ProductFilters({
           selectedIds={selectedStoreIds}
           onChange={onStoreChange}
         />
+
+        {persons.length > 0 && (
+          <MultiSelectFilter
+            label="Oceniający"
+            icon={User}
+            items={persons}
+            selectedIds={selectedPersonIds}
+            onChange={onPersonChange}
+          />
+        )}
 
         <SortSelect value={sortBy} onChange={onSortChange} />
 

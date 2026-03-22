@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { ChevronDown, Plus, Upload, ImageIcon, X } from "lucide-react"
+import { ChevronDown, Plus, Upload, ImageIcon, X, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -122,6 +122,7 @@ export function ProductForm({
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -244,7 +245,7 @@ export function ProductForm({
             <img
               src={data.imageUrl}
               alt="Podgląd"
-              className="w-full h-32 object-cover"
+              className="w-full max-h-48 object-contain bg-muted/30"
             />
             <button
               type="button"
@@ -271,10 +272,24 @@ export function ProductForm({
               </div>
             ) : (
               <>
-                <ImageIcon className="size-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">
-                  Kliknij aby przesłać zdjęcie
-                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                  >
+                    <Camera className="size-6 text-muted-foreground/50" />
+                    <span className="text-xs text-muted-foreground">Zrób zdjęcie</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                  >
+                    <ImageIcon className="size-6 text-muted-foreground/50" />
+                    <span className="text-xs text-muted-foreground">Z galerii</span>
+                  </button>
+                </div>
                 <p className="text-xs text-muted-foreground/60">
                   JPG, PNG, WebP — maks. 5MB
                 </p>
@@ -282,6 +297,14 @@ export function ProductForm({
             )}
           </div>
         )}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          capture="environment"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
         <input
           ref={fileInputRef}
           type="file"
