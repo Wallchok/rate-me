@@ -6,7 +6,17 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const dbPath = process.env.DATABASE_URL?.replace("file:", "") ?? "prisma/dev.db";
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  // Remote Turso DB
+  if (url && !url.startsWith("file:")) {
+    const adapter = new PrismaLibSql({ url, authToken });
+    return new PrismaClient({ adapter });
+  }
+
+  // Local SQLite fallback
+  const dbPath = url?.replace("file:", "") ?? "prisma/dev.db";
   const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
   return new PrismaClient({ adapter });
 }
