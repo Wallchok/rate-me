@@ -1,5 +1,6 @@
-// Shrinks a photo on the phone before upload: a 4 MB camera shot becomes ~100-200 KB
-export async function compressImage(file: File, maxSize = 1024, quality = 0.8): Promise<Blob> {
+// Shrinks a photo on the phone before upload: a 4 MB camera shot becomes ~50-80 KB.
+// 640 px is enough, the largest view is 112 px wide (336 px on a 3x screen).
+export async function compressImage(file: File, maxSize = 640, quality = 0.8): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");

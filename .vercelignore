@@ -1,0 +1,6 @@
+# Never upload local secrets, databases or test uploads with `vercel --prod`
+.env*
+*.db
+*.db-journal
+public/uploads/*
+PLAN.md
