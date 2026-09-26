@@ -39,6 +39,7 @@ export interface ListItem {
   id: string;
   text: string;
   productId: number | null;
+  categoryId?: number | null;
   addedById: number;
   boughtById: number | null;
   boughtAt: string | null;
@@ -52,6 +53,7 @@ export interface SyncData {
   products: Product[];
   list: ListItem[];
   aiEnabled?: boolean;
+  appVersion?: string | null;
   syncedAt: string;
 }
 

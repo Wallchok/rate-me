@@ -28,6 +28,10 @@ PROD_URL="https://yummy-rate.vercel.app"
 # awk reads everything: stopping early breaks the pipe and vercel exits with an error
 previous="$(vercel inspect "$PROD_URL" 2>&1 | awk '$1 == "url" && !found { print $2; found = 1 }' || true)"
 
+# Copy of the production database before any migration touches it
+if [ -n "$(scripts/migrate-prod.sh --dry-run | grep 'would apply')" ]; then
+  scripts/backup-db.sh
+fi
 scripts/migrate-prod.sh
 vercel --prod --yes
 

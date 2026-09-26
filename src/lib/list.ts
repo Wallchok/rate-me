@@ -46,3 +46,11 @@ export function clearBought(data: SyncData) {
 export function isOnList(data: SyncData, productId: number) {
   return data.list.some((i) => i.productId === productId && !i.boughtAt);
 }
+
+// Pins a concrete product to a plain-text item ("jogurt" -> "Skyr naturalny"), text stays as written
+export function linkProduct(item: ListItem, product: { id: number; categoryId: number }) {
+  queueChange({ url: `/api/list/${item.id}`, method: "PUT", json: { text: item.text, productId: product.id } }, (d) => ({
+    ...d,
+    list: d.list.map((i) => (i.id === item.id ? { ...i, productId: product.id, categoryId: product.categoryId } : i)),
+  }));
+}

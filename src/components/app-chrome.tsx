@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { APP_VERSION } from "@/lib/changelog"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { ArrowLeft, ListChecks, Loader2, Plus, ServerCrash, Settings, ShoppingBasket, Sparkles, WifiOff } from "lucide-react"
@@ -19,6 +20,53 @@ const NAV = [
 ]
 
 let warmed = false
+
+// "0.10.0" > "0.9.1": compare numbers, not strings
+function isNewer(a: string, b: string) {
+  const pa = a.split(".").map(Number)
+  const pb = b.split(".").map(Number)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0)
+  }
+  return false
+}
+
+// The screens come from the phone's cache, so a new release shows up only after a refresh
+function UpdateBar({ version }: { version: string }) {
+  const [busy, setBusy] = useState(false)
+
+  async function update() {
+    setBusy(true)
+    const reg = await navigator.serviceWorker?.getRegistration()
+    await reg?.update().catch(() => {})
+    const worker = reg?.active
+    if (worker) {
+      // Let the worker store the new screens first; otherwise the reload shows the cached old ones
+      await new Promise<void>((resolve) => {
+        const channel = new MessageChannel()
+        const timeout = setTimeout(resolve, 8000)
+        channel.port1.onmessage = () => {
+          clearTimeout(timeout)
+          resolve()
+        }
+        const scanner = !(globalThis as { BarcodeDetector?: unknown }).BarcodeDetector
+        worker.postMessage({ type: "warm", scanner }, [channel.port2])
+      })
+    }
+    window.location.reload()
+  }
+
+  return (
+    <button
+      onClick={update}
+      disabled={busy}
+      className="flex min-h-11 w-full items-center justify-center gap-2 bg-primary px-4 pt-[env(safe-area-inset-top)] text-sm font-medium text-primary-foreground"
+    >
+      {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+      Jest nowa wersja {version}, stuknij, aby odświeżyć
+    </button>
+  )
+}
 
 // Logged-in part of the app: keeps the local copy fresh and sends logged-out devices to /login
 export function AppChrome({ children }: { children: React.ReactNode }) {
@@ -65,8 +113,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     preloadScanner()
   }, [status])
 
+  // Not without signal: refreshing needs the network, the tap would only show old screens again
+  const newVersion =
+    status !== "offline" && data?.appVersion && data.appVersion !== APP_VERSION && isNewer(data.appVersion, APP_VERSION)
+
   return (
     <div className="mx-auto flex min-h-full w-full max-w-lg flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+      {newVersion && <UpdateBar version={data!.appVersion!} />}
       {children}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg">
         <div className="mx-auto flex max-w-lg items-stretch justify-around">

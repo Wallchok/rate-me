@@ -138,7 +138,7 @@ function Row({ item, data }: { item: ListItem; data: SyncData }) {
   const done = Boolean(item.boughtAt);
   const product = item.productId ? data.products.find((p) => p.id === item.productId) : undefined;
   // Written as plain text ("jogurt"): point at the best matching product you have rated
-  const suggestion = !product && !done ? bestMatch(item.text, data.products, data.categories, data.persons) : null;
+  const suggestion = !product && !done ? bestMatch(item.text, data.products, data.categories, data.persons, item.categoryId) : null;
   const addedBy = data.persons.find((p) => p.id === item.addedById);
   const boughtBy = data.persons.find((p) => p.id === item.boughtById);
   const time = item.boughtAt
@@ -163,14 +163,11 @@ function Row({ item, data }: { item: ListItem; data: SyncData }) {
         </span>
       </button>
       <div className="min-w-0 flex-1 py-1">
-        {product ? (
-          <Link href={`/product?id=${product.id}`} className={cn("block truncate font-medium", done && "line-through")}>
-            {item.text}
-            {product.brand && <span className="font-normal text-muted-foreground"> · {product.brand}</span>}
-          </Link>
-        ) : (
-          <p className={cn("truncate font-medium", done && "line-through")}>{item.text}</p>
-        )}
+        {/* Details: who likes what, what to buy */}
+        <Link href={`/list/item?id=${item.id}`} className={cn("block truncate font-medium", done && "line-through")}>
+          {item.text}
+          {product?.brand && <span className="font-normal text-muted-foreground"> · {product.brand}</span>}
+        </Link>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
           {done && boughtBy ? (
             <span>

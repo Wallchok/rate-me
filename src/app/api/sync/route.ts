@@ -68,11 +68,14 @@ export async function GET() {
       id: i.id,
       text: i.text,
       productId: i.productId,
+      categoryId: i.categoryId,
       addedById: i.addedById,
       boughtById: i.boughtById,
       boughtAt: i.boughtAt?.toISOString() ?? null,
       createdAt: i.createdAt.toISOString(),
     })),
+    // Version deployed on the server: the phone compares it with its own to offer an update
+    appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? null,
     // Only whether photo recognition is on; the key itself never leaves the server
     aiEnabled: Boolean(await getAiKey()),
     syncedAt: new Date().toISOString(),

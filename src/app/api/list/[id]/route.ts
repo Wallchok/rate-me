@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseId, readJson } from "@/lib/http";
 import { getPersonId, unauthorized } from "@/lib/session";
+import { guessCategory } from "@/lib/list-category";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -22,16 +23,28 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   if (!text) return NextResponse.json({ error: "Wpisz, co kupić" }, { status: 400 });
 
   const productId = parseId(body.productId);
-  const product = productId ? await prisma.product.findUnique({ where: { id: productId }, select: { id: true } }) : null;
+  const product = productId
+    ? await prisma.product.findUnique({ where: { id: productId }, select: { id: true, categoryId: true } })
+    : null;
 
   // Deleted on another phone meanwhile: a repeated "add" must not bring it back
-  const existing = await prisma.shoppingItem.findUnique({ where: { id }, select: { deletedAt: true } });
-  if (existing?.deletedAt) return NextResponse.json({ ok: true });
+  const current = await prisma.shoppingItem.findUnique({
+    where: { id },
+    select: { deletedAt: true, text: true, categoryId: true },
+  });
+  if (current?.deletedAt) return NextResponse.json({ ok: true });
+
+  // A linked product knows its category; plain text gets a guess (names, then AI)
+  const categoryId = product
+    ? product.categoryId
+    : current && current.text === text
+      ? current.categoryId
+      : await guessCategory(text);
 
   await prisma.shoppingItem.upsert({
     where: { id },
-    update: { text, productId: product?.id ?? null },
-    create: { id, text, productId: product?.id ?? null, addedById: personId },
+    update: { text, productId: product?.id ?? null, categoryId },
+    create: { id, text, productId: product?.id ?? null, categoryId, addedById: personId },
   });
   return NextResponse.json({ ok: true });
 }

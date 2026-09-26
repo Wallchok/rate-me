@@ -9,6 +9,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.10.0",
+    date: "2026-09-26",
+    title: "Podpowiedzi na liście zakupów",
+    changes: [
+      "Stuknij pozycję na liście: zobaczysz, kto co lubi z tej kategorii, i ranking, co najlepiej kupić",
+      "„Wybieram” przypina konkretny produkt do pozycji, np. „jogurt” → Skyr naturalny",
+      "Apka sama rozpoznaje, do jakiej kategorii pasuje wpis; z kluczem AI także np. „masło orzechowe” obok kremu orzechowego",
+      "Pasek „Jest nowa wersja”: jedno stuknięcie i masz najnowszą apkę",
+    ],
+  },
+  {
     version: "0.9.0",
     date: "2026-09-26",
     title: "Gusty i podpowiedzi na liście",

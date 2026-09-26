@@ -18,9 +18,10 @@ model Person {
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
-  products Product[]
+  id        Int            @id @default(autoincrement())
+  name      String         @unique
+  products  Product[]
+  listItems ShoppingItem[]
 }
 
 model Product {
@@ -79,6 +80,8 @@ model ShoppingItem {
   id         String    @id
   text       String
   productId  Int?
+  // Guessed from the text (name match or AI), for "what to buy" hints on plain-text items
+  categoryId Int?
   addedById  Int
   boughtById Int?
   boughtAt   DateTime?
@@ -86,7 +89,8 @@ model ShoppingItem {
   deletedAt  DateTime?
   createdAt  DateTime  @default(now())
 
-  product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  product  Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   addedBy  Person   @relation("addedBy", fields: [addedById], references: [id], onDelete: Cascade)
   boughtBy Person?  @relation("boughtBy", fields: [boughtById], references: [id], onDelete: SetNull)
 }

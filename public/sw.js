@@ -4,7 +4,7 @@ const CACHE = "rateme-v3";
 const IMAGE_CACHE = "rateme-images-v1";
 const IMAGE_HOST = "images.openfoodfacts.org";
 const MAX_IMAGES = 400;
-const SHELL = ["/", "/category", "/product", "/add", "/try", "/settings", "/changelog", "/list", "/taste"];
+const SHELL = ["/", "/category", "/product", "/add", "/try", "/settings", "/changelog", "/list", "/list/item", "/taste"];
 const SCANNER_WASM = "/zxing/zxing_reader.wasm";
 // Weak signal in a shop: give the network this long before falling back
 const RSC_TIMEOUT_MS = 2500;
@@ -60,7 +60,13 @@ async function warm(withScanner) {
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};
-  if (data.type === "warm") event.waitUntil(warm(data.scanner === true).catch(() => {}));
+  if (data.type === "warm") {
+    // Reply when done: the "new version" button waits for fresh screens before reloading
+    const done = warm(data.scanner === true)
+      .catch(() => {})
+      .then(() => event.ports[0]?.postMessage("warmed"));
+    event.waitUntil(done);
+  }
 });
 
 // Keeps the photo cache bounded; keys come back in insertion order, oldest first
