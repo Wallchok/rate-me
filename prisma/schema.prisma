@@ -13,6 +13,8 @@ model Person {
   createdAt DateTime @default(now())
   ratings   Rating[]
   skips     Skip[]
+  listAdded  ShoppingItem[] @relation("addedBy")
+  listBought ShoppingItem[] @relation("boughtBy")
 }
 
 model Category {
@@ -41,6 +43,7 @@ model Product {
   category Category @relation(fields: [categoryId], references: [id])
   ratings  Rating[]
   skips    Skip[]
+  listItems ShoppingItem[]
 }
 
 model Rating {
@@ -69,4 +72,19 @@ model Skip {
   person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([productId, personId])
+}
+
+// Shared shopping list. The id comes from the phone, so an offline change can be retried safely.
+model ShoppingItem {
+  id         String    @id
+  text       String
+  productId  Int?
+  addedById  Int
+  boughtById Int?
+  boughtAt   DateTime?
+  createdAt  DateTime  @default(now())
+
+  product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  addedBy  Person   @relation("addedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  boughtBy Person?  @relation("boughtBy", fields: [boughtById], references: [id], onDelete: SetNull)
 }

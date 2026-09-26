@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Plus, ServerCrash, Settings, ShoppingBasket, Sparkles, WifiOff } from "lucide-react"
+import { ArrowLeft, ListChecks, Loader2, Plus, ServerCrash, Settings, ShoppingBasket, Sparkles, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sync, useStore } from "@/lib/store"
 import { preloadScanner } from "@/components/barcode-scanner"
@@ -12,8 +12,9 @@ import type { SyncData } from "@/lib/types"
 
 const NAV = [
   { href: "/", label: "Kupuj", icon: ShoppingBasket },
-  { href: "/try", label: "Spróbuj", icon: Sparkles },
+  { href: "/list", label: "Lista", icon: ListChecks },
   { href: "/add", label: "Dodaj", icon: Plus, primary: true },
+  { href: "/try", label: "Spróbuj", icon: Sparkles },
   { href: "/settings", label: "Ustawienia", icon: Settings },
 ]
 
@@ -21,16 +22,23 @@ let warmed = false
 
 // Logged-in part of the app: keeps the local copy fresh and sends logged-out devices to /login
 export function AppChrome({ children }: { children: React.ReactNode }) {
-  const { status } = useStore()
+  const { status, data } = useStore()
   const router = useRouter()
   const pathname = usePathname()
   const hasNew = useHasNewVersion()
+  const toBuy = data?.list.filter((i) => !i.boughtAt).length ?? 0
 
   useEffect(() => {
     sync()
     const onVisible = () => document.visibilityState === "visible" && sync()
+    // Back in range: send what was changed offline
+    const onOnline = () => sync()
     document.addEventListener("visibilitychange", onVisible)
-    return () => document.removeEventListener("visibilitychange", onVisible)
+    window.addEventListener("online", onOnline)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("online", onOnline)
+    }
   }, [])
 
   useEffect(() => {
@@ -57,6 +65,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/settings" && pathname === "/changelog")
             const dot = href === "/settings" && hasNew
+            const count = href === "/list" ? toBuy : 0
             return (
               <Link
                 key={href}
@@ -74,10 +83,16 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                   <span className="relative">
                     <Icon className="size-5" />
                     {dot && <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-background" />}
+                    {count > 0 && (
+                      <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background">
+                        {count}
+                      </span>
+                    )}
                   </span>
                 )}
                 {label}
                 {dot && <span className="sr-only">, są nowe zmiany</span>}
+                {count > 0 && <span className="sr-only">, do kupienia: {count}</span>}
               </Link>
             )
           })}

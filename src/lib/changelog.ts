@@ -9,6 +9,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.7.0",
+    date: "2026-09-26",
+    title: "Wspólna lista zakupów",
+    changes: [
+      "Nowa zakładka „Lista”: każdy dopisuje, co kupić, i odhacza, co już kupione",
+      "Widać, kto i kiedy kupił; odhaczanie działa też bez zasięgu w sklepie",
+      "Przy wpisywaniu apka podpowiada Wasze najlepiej ocenione produkty",
+      "Na stronie produktu przycisk „Dodaj do listy”",
+      "Gdy kodu nie ma w bazie, apka i tak podpowie producenta",
+      "Rozpoznawanie produktu ze zdjęcia opakowania: nazwa, marka i kategoria wpisują się same",
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-09-26",
     title: "Nowy ekran główny",

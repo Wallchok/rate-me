@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, PencilLine, ScanBarcode } from "lucide-react";
+import { Camera, Loader2, PencilLine, ScanBarcode } from "lucide-react";
+import { compressImage } from "@/lib/image";
 import { toast } from "sonner";
 import { mutate, useStore } from "@/lib/store";
 import { normalizeEan } from "@/lib/ean";
@@ -13,13 +14,13 @@ import { BarcodeScanner } from "@/components/barcode-scanner";
 import { CatalogSearch } from "@/components/catalog-search";
 import { ProductForm, emptyProductForm, toProductPayload, type ProductFormValues } from "@/components/product-form";
 import { RatingFields, type RatingValue } from "@/components/rating-editor";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 type Stage =
   | { kind: "choose" }
   | { kind: "loading"; ean: string }
   | { kind: "known"; productId: number; name: string }
-  | { kind: "form"; initial: ProductFormValues; info?: string };
+  | { kind: "form"; initial: ProductFormValues; info?: string; recognize?: boolean; rev?: number };
 
 interface OffProduct {
   found: boolean;
@@ -41,7 +42,14 @@ async function lookup(ean: string): Promise<Stage> {
     const res = await fetch(`/api/off/${ean}`);
     const off: OffProduct = await res.json();
     if (!res.ok || !off.found) {
-      return { kind: "form", initial: base, info: "Nie znaleźliśmy tego kodu w bazie produktów. Uzupełnij dane ręcznie." };
+      return {
+        kind: "form",
+        initial: { ...base, brand: off.brand ?? "" },
+        info: off.brand
+          ? `Nie znaleźliśmy produktu w bazie, ale wiemy, że producent to ${off.brand}. Uzupełnij nazwę albo rozpoznaj ze zdjęcia.`
+          : "Nie znaleźliśmy tego kodu w bazie produktów. Uzupełnij dane ręcznie albo rozpoznaj ze zdjęcia.",
+        recognize: true,
+      };
     }
     const s = (n?: number | null) => (n === null || n === undefined ? "" : String(n));
     return {
@@ -146,7 +154,7 @@ function AddFlow({ data }: { data: SyncData }) {
             </span>
           </button>
           <button
-            onClick={() => setStage({ kind: "form", initial: emptyProductForm })}
+            onClick={() => setStage({ kind: "form", initial: emptyProductForm, recognize: true })}
             className="flex items-center gap-4 rounded-2xl border bg-card p-5 text-left active:bg-muted"
           >
             <PencilLine className="size-8 text-muted-foreground" />
@@ -178,8 +186,21 @@ function AddFlow({ data }: { data: SyncData }) {
       {stage.kind === "form" && (
         <>
           {stage.info && <p className="rounded-xl bg-muted p-3 text-sm">{stage.info}</p>}
+          {stage.recognize && (
+            <RecognizeButton
+              onRecognized={(patch) =>
+                setStage({
+                  kind: "form",
+                  initial: { ...stage.initial, ...patch },
+                  info: "Rozpoznane ze zdjęcia. Sprawdź nazwę i kategorię.",
+                  // New key, so the form takes the recognized values even when the name did not change
+                  rev: (stage.rev ?? 0) + 1,
+                })
+              }
+            />
+          )}
           <ProductForm
-            key={stage.initial.ean || "manual"}
+            key={`${stage.initial.ean || "manual"}-${stage.rev ?? 0}`}
             initial={stage.initial}
             categories={data.categories}
             submitLabel="Dodaj produkt"
@@ -195,5 +216,63 @@ function AddFlow({ data }: { data: SyncData }) {
 
       <BarcodeScanner open={scanOpen} onOpenChange={setScanOpen} onDetected={onScan} />
     </main>
+  );
+}
+
+// Photo of the packaging -> name, brand and category (AI); the same photo becomes the product photo
+function RecognizeButton({ onRecognized }: { onRecognized: (patch: Partial<ProductFormValues>) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      let blob: Blob;
+      try {
+        blob = await compressImage(file);
+      } catch {
+        toast.error("Nie udało się odczytać zdjęcia");
+        return;
+      }
+      const form = () => {
+        const f = new FormData();
+        f.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }));
+        return f;
+      };
+      const [recognized, uploaded] = await Promise.all([
+        fetch("/api/recognize", { method: "POST", body: form() }).then(async (r) => ({ ok: r.ok, json: await r.json().catch(() => ({})) })),
+        fetch("/api/upload", { method: "POST", body: form() }).then(async (r) => (r.ok ? (await r.json()).url : null)).catch(() => null),
+      ]).catch(() => [null, null] as const);
+      if (!recognized) {
+        toast.error("Brak połączenia. Rozpoznawanie działa tylko z internetem.");
+        return;
+      }
+      if (!recognized.ok) {
+        toast.error(recognized.json.error || "Nie udało się rozpoznać produktu");
+        return;
+      }
+      const r = recognized.json as { name: string | null; brand: string | null; categoryId: number | null };
+      onRecognized({
+        ...(r.name && { name: r.name }),
+        ...(r.brand && { brand: r.brand }),
+        ...(r.categoryId && { categoryId: String(r.categoryId) }),
+        ...(uploaded && { imageUrl: uploaded }),
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button type="button" variant="outline" className="h-12 w-full" disabled={busy} onClick={() => inputRef.current?.click()}>
+        {busy ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
+        {busy ? "Rozpoznaję..." : "Rozpoznaj ze zdjęcia opakowania"}
+      </Button>
+      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={onFile} className="hidden" />
+    </>
   );
 }

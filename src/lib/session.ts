@@ -52,6 +52,18 @@ export function unauthorized(code: "no_session" | "no_person" = "no_session") {
   return NextResponse.json({ error: "Unauthorized", code }, { status: 401 });
 }
 
+// Like getPersonId, but also checks the person still exists (could be deleted on another phone).
+// A missing person keeps the household login and asks "who are you" again.
+export async function getExistingPersonId(): Promise<number | null> {
+  const session = await getSession();
+  if (!session?.personId) return null;
+  const { prisma } = await import("@/lib/prisma");
+  const exists = await prisma.person.findUnique({ where: { id: session.personId }, select: { id: true } });
+  if (exists) return exists.id;
+  await setSession({ household: true });
+  return null;
+}
+
 // Person logged in on this device, or null
 export async function getPersonId(): Promise<number | null> {
   const session = await getSession();

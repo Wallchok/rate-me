@@ -3,7 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { ListChecks, ListPlus, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { addItem, isOnList } from "@/lib/list";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { mutate, sync, useStore } from "@/lib/store";
@@ -75,6 +76,29 @@ function ProductScreen() {
   );
 }
 
+function AddToListButton({ data, product }: { data: SyncData; product: Product }) {
+  if (isOnList(data, product.id)) {
+    return (
+      <Link href="/list" className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary">
+        <ListChecks className="size-4" />
+        Na liście zakupów
+      </Link>
+    );
+  }
+  return (
+    <button
+      onClick={() => {
+        addItem(data, product.name, product.id);
+        toast.success("Dodano do listy zakupów");
+      }}
+      className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary"
+    >
+      <ListPlus className="size-4" />
+      Dodaj do listy
+    </button>
+  );
+}
+
 // A product saved a moment ago can be missing locally when the refresh after saving failed
 function NotLoaded({ online }: { online: boolean }) {
   return (
@@ -122,6 +146,7 @@ function Details({ data, product }: { data: SyncData; product: Product }) {
           >
             {v.text}
           </p>
+          <AddToListButton data={data} product={product} />
           {product.nutriScore && (
             <span
               className={cn(

@@ -35,11 +35,22 @@ export interface Product {
   skippedBy: number[];
 }
 
+export interface ListItem {
+  id: string;
+  text: string;
+  productId: number | null;
+  addedById: number;
+  boughtById: number | null;
+  boughtAt: string | null;
+  createdAt: string;
+}
+
 export interface SyncData {
   meId: number;
   persons: Person[];
   categories: Category[];
   products: Product[];
+  list: ListItem[];
   syncedAt: string;
 }
 

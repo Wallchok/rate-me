@@ -9,7 +9,9 @@ export async function GET() {
   if (!session) return unauthorized();
   if (!session.personId) return unauthorized("no_person");
 
-  const [persons, categories, products] = await Promise.all([
+  // Bought items stay visible for a day, then drop off the list
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [persons, categories, products, list] = await Promise.all([
     prisma.person.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.product.findMany({
@@ -34,6 +36,10 @@ export async function GET() {
         skips: { select: { personId: true } },
       },
     }),
+    prisma.shoppingItem.findMany({
+      where: { OR: [{ boughtAt: null }, { boughtAt: { gte: dayAgo } }] },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
 
   // Person could have been deleted on another phone: keep the household login, ask "who are you" again.
@@ -54,6 +60,15 @@ export async function GET() {
       skippedBy: skips.map((s) => s.personId),
       createdAt: p.createdAt.toISOString(),
       ratings: p.ratings.map((r) => ({ ...r, updatedAt: r.updatedAt.toISOString() })),
+    })),
+    list: list.map((i) => ({
+      id: i.id,
+      text: i.text,
+      productId: i.productId,
+      addedById: i.addedById,
+      boughtById: i.boughtById,
+      boughtAt: i.boughtAt?.toISOString() ?? null,
+      createdAt: i.createdAt.toISOString(),
     })),
     syncedAt: new Date().toISOString(),
   };

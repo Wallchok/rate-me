@@ -9,6 +9,7 @@ import type { SyncData } from "@/lib/types";
 const DATA_KEY = "rateme:data";
 const FOR_WHOM_KEY = "rateme:forWhom";
 const CATEGORY_KEY = "rateme:category";
+const OUTBOX_KEY = "rateme:outbox";
 
 // "error": the server answered with a failure (not the same as no signal)
 export type SyncStatus = "idle" | "syncing" | "ok" | "offline" | "error" | "unauthorized";
@@ -20,11 +21,22 @@ interface StoreState {
   forWhom: ForWhom;
   // Category filter on the home screen: "all" or a category id
   category: CategoryFilter;
+  // Changes made without signal, waiting to be sent
+  pending: number;
+}
+
+// A change that can be sent later; list endpoints are safe to repeat
+interface QueuedRequest {
+  url: string;
+  method: string;
+  json?: unknown;
+  // Removed by this id after sending, so two tabs sharing the queue never drop an unsent change
+  key?: string;
 }
 
 export type CategoryFilter = "all" | number;
 
-const SERVER_STATE: StoreState = { data: null, status: "idle", forWhom: "all", category: "all" };
+const SERVER_STATE: StoreState = { data: null, status: "idle", forWhom: "all", category: "all", pending: 0 };
 
 let state: StoreState | null = null;
 const listeners = new Set<() => void>();
@@ -43,12 +55,29 @@ function readLocal(): StoreState {
   } catch {
     // Corrupted cache, a fresh sync will replace it
   }
-  return { data, status: "idle", forWhom, category };
+  return { data, status: "idle", forWhom, category, pending: readOutbox().length };
 }
 
 // Copies saved by older app versions miss newer fields
 function normalize(data: SyncData): SyncData {
-  return { ...data, products: data.products.map((p) => ({ ...p, skippedBy: p.skippedBy ?? [] })) };
+  return {
+    ...data,
+    list: data.list ?? [],
+    products: data.products.map((p) => ({ ...p, skippedBy: p.skippedBy ?? [] })),
+  };
+}
+
+function readOutbox(): QueuedRequest[] {
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function writeOutbox(items: QueuedRequest[]) {
+  localStorage.setItem(OUTBOX_KEY, JSON.stringify(items));
+  setState({ pending: items.length });
 }
 
 function getState(): StoreState {
@@ -76,6 +105,10 @@ let localVersion = 0;
 
 export function sync(): Promise<void> {
   if (inflight) return inflight;
+  // Send changes made offline first; while some are still waiting, keep the local copy
+  if (readOutbox().length > 0) {
+    return flush().then(() => (readOutbox().length > 0 ? setState({ status: "offline" }) : sync()));
+  }
   setState({ status: "syncing" });
   const startedAt = localVersion;
   inflight = (async () => {
@@ -110,6 +143,44 @@ export function sync(): Promise<void> {
   return inflight;
 }
 
+let flushing: Promise<void> | null = null;
+
+// Sends queued changes in order. Stops at the first network error and keeps the rest for later.
+function flush(): Promise<void> {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    try {
+      let queue = readOutbox();
+      while (queue.length > 0) {
+        try {
+          await send(queue[0].url, { method: queue[0].method, json: queue[0].json });
+        } catch (e) {
+          const status = (e as { status?: number }).status;
+          // No signal, session gone or server trouble: try again later
+          if (!status || status === 401 || status >= 500) return;
+          // Rejected for good (e.g. item deleted meanwhile): drop it
+        }
+        const done = queue[0].key;
+        queue = readOutbox().filter((r, i) => (done ? r.key !== done : i !== 0));
+        writeOutbox(queue);
+      }
+    } finally {
+      flushing = null;
+    }
+  })();
+  return flushing;
+}
+
+// Changes the local copy at once and sends the change now or, without signal, later.
+export function queueChange(request: QueuedRequest, patch: (data: SyncData) => SyncData) {
+  const data = getState().data;
+  if (data) saveLocal(patch(data));
+  writeOutbox([...readOutbox(), { ...request, key: crypto.randomUUID() }]);
+  flush().then(() => {
+    if (readOutbox().length === 0) syncAfterChange();
+  });
+}
+
 // A sync that started before a change would bring back old data, so wait for it and fetch again
 function syncAfterChange(): Promise<void> {
   return inflight ? inflight.then(() => sync()) : sync();
@@ -129,7 +200,8 @@ export function clearLocalData() {
   localStorage.removeItem(DATA_KEY);
   localStorage.removeItem(FOR_WHOM_KEY);
   localStorage.removeItem(CATEGORY_KEY);
-  setState({ data: null, forWhom: "all", category: "all" });
+  localStorage.removeItem(OUTBOX_KEY);
+  setState({ data: null, forWhom: "all", category: "all", pending: 0 });
 }
 
 function saveLocal(data: SyncData) {
