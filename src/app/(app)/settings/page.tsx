@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Download, LogOut, Pencil, Trash2, UserRound, X } from "lucide-react";
+import { Check, Download, LogOut, Pencil, Sparkles, Trash2, UserRound, X } from "lucide-react";
+import { APP_VERSION } from "@/lib/changelog";
+import { useHasNewVersion } from "@/lib/seen-version";
 import { toast } from "sonner";
 import { clearLocalData, mutate } from "@/lib/store";
 import type { SyncData } from "@/lib/types";
@@ -25,6 +27,7 @@ export default function SettingsPage() {
 function Settings({ data }: { data: SyncData }) {
   const router = useRouter();
   const me = data.persons.find((p) => p.id === data.meId);
+  const hasNew = useHasNewVersion();
 
   async function logout() {
     // The cookie is httpOnly, only the server can remove it
@@ -84,6 +87,13 @@ function Settings({ data }: { data: SyncData }) {
         </div>
       </section>
 
+      <Link href="/changelog" className="flex min-h-12 items-center gap-3 rounded-2xl border px-4">
+        <Sparkles className="size-5 text-primary" />
+        <span className="flex-1 font-medium">Co nowego</span>
+        {hasNew && <span className="size-2.5 rounded-full bg-primary" aria-label="Nowe zmiany" />}
+        <span className="text-sm tabular-nums text-muted-foreground">{APP_VERSION}</span>
+      </Link>
+
       <Button variant="ghost" className="h-11 w-full text-destructive" onClick={logout}>
         <LogOut className="size-4" />
         Wyloguj ten telefon
@@ -94,7 +104,7 @@ function Settings({ data }: { data: SyncData }) {
         <a href="https://pl.openfoodfacts.org" className="underline" target="_blank" rel="noreferrer">
           Open Food Facts
         </a>{" "}
-        (licencja ODbL).
+        (licencja ODbL). Wersja {APP_VERSION}.
       </p>
     </main>
   );

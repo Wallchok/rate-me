@@ -12,13 +12,20 @@ git diff --quiet && git diff --cached --quiet || fail "są niezacommitowane zmia
 git fetch -q origin main
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "main różni się od origin/main (najpierw wypchnij main)"
 
+# One version per release: the newest changelog entry, package.json and a not yet used tag
+version="$(grep -m1 'version: "' src/lib/changelog.ts | sed -E 's/.*version: "([^"]+)".*/\1/')"
+[ "$version" = "$(node -p 'require("./package.json").version')" ] || fail "wersja w package.json różni się od changelogu ($version)"
+git fetch -q --tags origin
+if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+  fail "v$version już wydana: dopisz nową wersję na górze src/lib/changelog.ts i w package.json"
+fi
+
 npm run lint
 npm run build
 
 scripts/migrate-prod.sh
 vercel --prod --yes
 
-tag="deploy-$(date +%Y%m%d-%H%M)"
-git tag "$tag"
-git push -q origin "refs/tags/$tag"
-echo "Wydane: $tag ($(git rev-parse --short HEAD))"
+git tag "v$version"
+git push -q origin "refs/tags/v$version"
+echo "Wydane: v$version ($(git rev-parse --short HEAD))"

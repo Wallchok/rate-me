@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Plus, ServerCrash, Settings, ShoppingBasket, Sparkl
 import { cn } from "@/lib/utils"
 import { sync, useStore } from "@/lib/store"
 import { preloadScanner } from "@/components/barcode-scanner"
+import { useHasNewVersion } from "@/lib/seen-version"
 import type { SyncData } from "@/lib/types"
 
 const NAV = [
@@ -23,6 +24,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const { status } = useStore()
   const router = useRouter()
   const pathname = usePathname()
+  const hasNew = useHasNewVersion()
 
   useEffect(() => {
     sync()
@@ -52,7 +54,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg">
         <div className="mx-auto flex max-w-lg items-stretch justify-around">
           {NAV.map(({ href, label, icon: Icon, primary }) => {
-            const active = href === "/" ? pathname === "/" : pathname.startsWith(href)
+            const active =
+              href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/settings" && pathname === "/changelog")
+            const dot = href === "/settings" && hasNew
             return (
               <Link
                 key={href}
@@ -67,9 +71,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                     <Icon className="size-5" />
                   </span>
                 ) : (
-                  <Icon className="size-5" />
+                  <span className="relative">
+                    <Icon className="size-5" />
+                    {dot && <span className="absolute -right-1 -top-0.5 size-2 rounded-full bg-primary ring-2 ring-background" />}
+                  </span>
                 )}
                 {label}
+                {dot && <span className="sr-only">, są nowe zmiany</span>}
               </Link>
             )
           })}
