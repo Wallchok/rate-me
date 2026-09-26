@@ -88,3 +88,10 @@ model ShoppingItem {
   addedBy  Person   @relation("addedBy", fields: [addedById], references: [id], onDelete: Cascade)
   boughtBy Person?  @relation("boughtBy", fields: [boughtById], references: [id], onDelete: SetNull)
 }
+
+// App-wide settings set from the settings screen; secrets are stored encrypted
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPersonId, unauthorized } from "@/lib/session";
+import { getOpenAiKey } from "@/lib/secret-settings";
 
 const MODEL = "gpt-5-nano";
 const MAX_SIZE = 2 * 1024 * 1024;
@@ -15,8 +16,10 @@ Czego nie widać na zdjęciu, zwróć jako null. Nie zgaduj marki, której nie w
 export async function POST(request: NextRequest) {
   if (!(await getPersonId())) return unauthorized("no_person");
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return NextResponse.json({ error: "Rozpoznawanie ze zdjęcia nie jest włączone" }, { status: 501 });
+  const apiKey = await getOpenAiKey();
+  if (!apiKey) {
+    return NextResponse.json({ error: "Rozpoznawanie ze zdjęcia nie jest włączone. Wklej klucz OpenAI w Ustawieniach." }, { status: 501 });
+  }
 
   const formData = await request.formData().catch(() => null);
   const file = formData?.get("file");
