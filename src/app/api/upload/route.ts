@@ -34,15 +34,16 @@ export async function POST(request: NextRequest) {
 
   const filename = `${randomUUID()}.${ext}`;
 
-  // Vercel Blob in production
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  // Vercel Blob in production: a connected store gives BLOB_STORE_ID (auth via Vercel OIDC),
+  // older setups give BLOB_READ_WRITE_TOKEN. @vercel/blob picks the right one itself.
+  if (process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN) {
     const blob = await put(`products/${filename}`, bytes, { access: "public", contentType: file.type });
     return NextResponse.json({ url: blob.url });
   }
 
   // Local dev only: Vercel's filesystem is read-only
   if (process.env.VERCEL) {
-    return NextResponse.json({ error: "Brak konfiguracji Vercel Blob (BLOB_READ_WRITE_TOKEN)" }, { status: 500 });
+    return NextResponse.json({ error: "Brak konfiguracji Vercel Blob (podepnij Blob do projektu)" }, { status: 500 });
   }
   const dir = path.join(process.cwd(), "public", "uploads");
   await mkdir(dir, { recursive: true });
