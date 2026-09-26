@@ -8,6 +8,7 @@ import type { SyncData } from "@/lib/types";
 
 const DATA_KEY = "rateme:data";
 const FOR_WHOM_KEY = "rateme:forWhom";
+const CATEGORY_KEY = "rateme:category";
 
 // "error": the server answered with a failure (not the same as no signal)
 export type SyncStatus = "idle" | "syncing" | "ok" | "offline" | "error" | "unauthorized";
@@ -17,9 +18,13 @@ interface StoreState {
   data: SyncData | null;
   status: SyncStatus;
   forWhom: ForWhom;
+  // Category filter on the home screen: "all" or a category id
+  category: CategoryFilter;
 }
 
-const SERVER_STATE: StoreState = { data: null, status: "idle", forWhom: "all" };
+export type CategoryFilter = "all" | number;
+
+const SERVER_STATE: StoreState = { data: null, status: "idle", forWhom: "all", category: "all" };
 
 let state: StoreState | null = null;
 const listeners = new Set<() => void>();
@@ -27,15 +32,18 @@ const listeners = new Set<() => void>();
 function readLocal(): StoreState {
   let data: SyncData | null = null;
   let forWhom: ForWhom = "all";
+  let category: CategoryFilter = "all";
   try {
     const raw = localStorage.getItem(DATA_KEY);
     if (raw) data = normalize(JSON.parse(raw));
     const fw = localStorage.getItem(FOR_WHOM_KEY);
     if (fw && fw !== "all" && Number.isInteger(Number(fw))) forWhom = Number(fw);
+    const cat = localStorage.getItem(CATEGORY_KEY);
+    if (cat && cat !== "all" && Number.isInteger(Number(cat))) category = Number(cat);
   } catch {
     // Corrupted cache, a fresh sync will replace it
   }
-  return { data, status: "idle", forWhom };
+  return { data, status: "idle", forWhom, category };
 }
 
 // Copies saved by older app versions miss newer fields
@@ -107,6 +115,11 @@ function syncAfterChange(): Promise<void> {
   return inflight ? inflight.then(() => sync()) : sync();
 }
 
+export function setCategory(category: CategoryFilter) {
+  localStorage.setItem(CATEGORY_KEY, String(category));
+  setState({ category });
+}
+
 export function setForWhom(forWhom: ForWhom) {
   localStorage.setItem(FOR_WHOM_KEY, String(forWhom));
   setState({ forWhom });
@@ -115,7 +128,8 @@ export function setForWhom(forWhom: ForWhom) {
 export function clearLocalData() {
   localStorage.removeItem(DATA_KEY);
   localStorage.removeItem(FOR_WHOM_KEY);
-  setState({ data: null, forWhom: "all" });
+  localStorage.removeItem(CATEGORY_KEY);
+  setState({ data: null, forWhom: "all", category: "all" });
 }
 
 function saveLocal(data: SyncData) {

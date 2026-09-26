@@ -31,11 +31,14 @@ export function ProductRow({
   persons,
   rank,
   muted,
+  categoryName,
 }: {
   product: Product
   persons: Person[]
   rank?: number
   muted?: boolean
+  // Shown when the list mixes categories
+  categoryName?: string
 }) {
   const v = verdict(product, persons)
   return (
@@ -59,7 +62,11 @@ export function ProductRow({
       <ProductThumb product={product} className="size-14 shrink-0" />
       <div className="min-w-0 flex-1 space-y-1">
         <p className="truncate font-medium leading-tight">{product.name}</p>
-        {product.brand && <p className="truncate text-xs text-muted-foreground">{product.brand}</p>}
+        {(product.brand || categoryName) && (
+          <p className="truncate text-xs text-muted-foreground">
+            {[product.brand, categoryName].filter(Boolean).join(" · ")}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <ScoreChips product={product} persons={persons} />
           <span

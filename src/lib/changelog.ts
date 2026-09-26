@@ -9,6 +9,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.6.0",
+    date: "2026-09-26",
+    title: "Nowy ekran główny",
+    changes: [
+      "Filtry nad jedną listą: wybierz osobę i kategorię, np. Klaudia + Słone przekąski",
+      "Cała lista od najlepszego, z podziałem na Najlepsze, Może być i Nie brać",
+      "Apka pamięta ostatnio wybrane filtry",
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-09-26",
     title: "Co nowego",
