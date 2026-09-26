@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { sync } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -45,6 +46,8 @@ export function AiKeySettings() {
       }
       setStatus(json)
       setKey("")
+      // "Dodaj" shows the recognize button based on the synced flag: refresh it now
+      sync()
       toast.success(method === "PUT" ? "Klucz działa i jest zapisany" : "Klucz usunięty")
     } catch {
       toast.error("Brak połączenia")

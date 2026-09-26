@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession, refreshSessionIfOld, setSession, unauthorized } from "@/lib/session";
 import type { SyncData } from "@/lib/types";
+import { getAiKey } from "@/lib/secret-settings";
 
 // Whole household data in one response. It is small, so the device keeps a full copy for offline use.
 export async function GET() {
@@ -37,7 +38,7 @@ export async function GET() {
       },
     }),
     prisma.shoppingItem.findMany({
-      where: { OR: [{ boughtAt: null }, { boughtAt: { gte: dayAgo } }] },
+      where: { deletedAt: null, OR: [{ boughtAt: null }, { boughtAt: { gte: dayAgo } }] },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -50,6 +51,8 @@ export async function GET() {
   }
 
   await refreshSessionIfOld(session);
+  // Deleted list items are kept a month as tombstones (for late offline changes), then removed
+  await prisma.shoppingItem.deleteMany({ where: { deletedAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } });
 
   const data: SyncData = {
     meId: session.personId,
@@ -70,6 +73,8 @@ export async function GET() {
       boughtAt: i.boughtAt?.toISOString() ?? null,
       createdAt: i.createdAt.toISOString(),
     })),
+    // Only whether photo recognition is on; the key itself never leaves the server
+    aiEnabled: Boolean(await getAiKey()),
     syncedAt: new Date().toISOString(),
   };
 

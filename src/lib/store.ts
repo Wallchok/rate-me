@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { toast } from "sonner";
 import type { SyncData } from "@/lib/types";
 
 // Household data kept on the device, so the shop screens work without signal.
@@ -158,7 +159,8 @@ function flush(): Promise<void> {
           const status = (e as { status?: number }).status;
           // No signal, session gone or server trouble: try again later
           if (!status || status === 401 || status >= 500) return;
-          // Rejected for good (e.g. item deleted meanwhile): drop it
+          // Rejected for good (e.g. item deleted meanwhile): drop it, but say so
+          toast.error(`Nie udało się zapisać zmiany zrobionej bez internetu: ${(e as Error).message}`);
         }
         const done = queue[0].key;
         queue = readOutbox().filter((r, i) => (done ? r.key !== done : i !== 0));
@@ -169,6 +171,12 @@ function flush(): Promise<void> {
     }
   })();
   return flushing;
+}
+
+// Sends changes still waiting from offline; used before switching person so they are not lost
+export async function sendPending(): Promise<number> {
+  await flush();
+  return readOutbox().length;
 }
 
 // Changes the local copy at once and sends the change now or, without signal, later.

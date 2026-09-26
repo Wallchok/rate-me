@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { clearLocalData, sync } from "@/lib/store";
+import { clearLocalData, sendPending, sync } from "@/lib/store";
 import type { Person } from "@/lib/types";
 import { PersonAvatar } from "@/components/person-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Step = { kind: "checking" } | { kind: "password" } | { kind: "person"; persons: Person[] };
+type Step = { kind: "checking" } | { kind: "password" } | { kind: "offline" } | { kind: "person"; persons: Person[] };
 
 async function loadPersons(): Promise<Step> {
   const res = await fetch("/api/persons", { cache: "no-store" });
@@ -28,10 +28,14 @@ export default function LoginPage() {
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  const load = () =>
     loadPersons()
       .then(setStep)
-      .catch(() => setStep({ kind: "password" }));
+      // No signal or server trouble is not a wrong password
+      .catch(() => setStep({ kind: "offline" }));
+
+  useEffect(() => {
+    load();
   }, []);
 
   async function submitPassword(e: React.FormEvent) {
@@ -58,6 +62,11 @@ export default function LoginPage() {
   async function choose(body: { personId: number } | { name: string }) {
     setBusy(true);
     try {
+      // Changes made offline belong to the current person: send them before switching
+      if ((await sendPending()) > 0) {
+        toast.error("Najpierw muszą się wysłać zmiany zrobione bez internetu. Spróbuj, gdy wróci zasięg.");
+        return;
+      }
       const res = await fetch("/api/auth/person", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,6 +79,7 @@ export default function LoginPage() {
       }
       // Different person on this phone: drop the old local copy
       clearLocalData();
+      toast.dismiss();
       await sync();
       router.replace("/");
     } catch {
@@ -92,6 +102,16 @@ export default function LoginPage() {
       {step.kind === "checking" && (
         <div className="flex justify-center">
           <Loader2 className="size-6 animate-spin text-primary" />
+        </div>
+      )}
+
+      {step.kind === "offline" && (
+        <div className="space-y-3 text-center">
+          <p className="font-medium">Brak połączenia</p>
+          <p className="text-sm text-muted-foreground">Do zalogowania potrzebny jest internet.</p>
+          <Button className="h-12 w-full" onClick={() => { setStep({ kind: "checking" }); load(); }}>
+            Spróbuj ponownie
+          </Button>
         </div>
       )}
 
@@ -127,7 +147,9 @@ export default function LoginPage() {
             {busy && <Loader2 className="size-4 animate-spin" />}
             Dalej
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Wpisujesz je raz na tym telefonie.</p>
+          <p className="text-center text-xs text-muted-foreground">
+            Wpisujesz je raz na tym telefonie. Hasło domu zna osoba, która założyła apkę u Was w domu.
+          </p>
         </form>
       )}
 

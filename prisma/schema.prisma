@@ -82,6 +82,8 @@ model ShoppingItem {
   addedById  Int
   boughtById Int?
   boughtAt   DateTime?
+  // Set instead of deleting, so a delayed "add" from the other phone cannot bring the item back
+  deletedAt  DateTime?
   createdAt  DateTime  @default(now())
 
   product  Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
@@ -94,4 +96,32 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Failed household password attempts, for limiting guessing (serverless has no shared memory)
+model LoginFailure {
+  id        Int      @id @default(autoincrement())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([ip, createdAt])
+}
+
+// Per-day usage counters for paid or limited services, e.g. "recognize:2026-09-26"
+model UsageCounter {
+  key   String @id
+  count Int    @default(0)
+}
+
+// "Zgłoś problem" from settings, plus errors caught by the error screen
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  kind      String // "report" or "error"
+  message   String
+  personId  Int?
+  version   String?
+  page      String?
+  userAgent String?
+  createdAt DateTime @default(now())
 }

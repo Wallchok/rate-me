@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseId, readJson } from "@/lib/http";
-import { getExistingPersonId, unauthorized } from "@/lib/session";
+import { getPersonId, unauthorized } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -12,7 +12,7 @@ function parseItemId(id: string) {
 
 // Add an item or change its text
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const personId = await getExistingPersonId();
+  const personId = await getPersonId();
   if (!personId) return unauthorized("no_person");
 
   const id = parseItemId((await params).id);
@@ -24,6 +24,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const productId = parseId(body.productId);
   const product = productId ? await prisma.product.findUnique({ where: { id: productId }, select: { id: true } }) : null;
 
+  // Deleted on another phone meanwhile: a repeated "add" must not bring it back
+  const existing = await prisma.shoppingItem.findUnique({ where: { id }, select: { deletedAt: true } });
+  if (existing?.deletedAt) return NextResponse.json({ ok: true });
+
   await prisma.shoppingItem.upsert({
     where: { id },
     update: { text, productId: product?.id ?? null },
@@ -34,7 +38,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 // Mark as bought (by the logged-in person) or back to buy
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const personId = await getExistingPersonId();
+  const personId = await getPersonId();
   if (!personId) return unauthorized("no_person");
 
   const id = parseItemId((await params).id);
@@ -50,17 +54,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   // updateMany: an item deleted on the other phone is simply gone, not an error
   await prisma.shoppingItem.updateMany({
-    where: { id },
+    where: { id, deletedAt: null },
     data: bought ? { boughtById: personId, boughtAt } : { boughtById: null, boughtAt: null },
   });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  if (!(await getExistingPersonId())) return unauthorized("no_person");
+  if (!(await getPersonId())) return unauthorized("no_person");
 
   const id = parseItemId((await params).id);
   if (!id) return NextResponse.json({ error: "Nieprawidłowa pozycja" }, { status: 400 });
-  await prisma.shoppingItem.deleteMany({ where: { id } });
+  // Marked, not removed: see PUT
+  await prisma.shoppingItem.updateMany({ where: { id, deletedAt: null }, data: { deletedAt: new Date() } });
   return NextResponse.json({ ok: true });
 }

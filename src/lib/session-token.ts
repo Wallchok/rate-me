@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { SignJWT, jwtVerify } from "jose";
 
 // Shared by proxy.ts and route handlers, so no next/headers here
@@ -12,14 +13,22 @@ export interface SessionPayload {
   iat?: number;
 }
 
+// Short fingerprint of the household password inside every session:
+// changing the password logs out all phones, because old sessions no longer match
+function passwordFingerprint() {
+  const password = process.env.HOUSEHOLD_PASSWORD?.replace(/[\r\n]+$/, "") ?? "";
+  return createHash("sha256").update(`rateme-session:${password}`).digest("base64url").slice(0, 16);
+}
+
 function getKey() {
   const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set");
+  // A short secret could be brute-forced offline from a single cookie
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET must be at least 32 characters");
   return new TextEncoder().encode(secret);
 }
 
 export async function signSession(payload: Omit<SessionPayload, "iat">) {
-  return new SignJWT({ ...payload })
+  return new SignJWT({ ...payload, pw: passwordFingerprint() })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_MAX_AGE}s`)
@@ -30,7 +39,7 @@ export async function verifySession(token: string | undefined): Promise<SessionP
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getKey(), { algorithms: ["HS256"] });
-    if (payload.household !== true) return null;
+    if (payload.household !== true || payload.pw !== passwordFingerprint()) return null;
     return {
       household: true,
       personId: typeof payload.personId === "number" ? payload.personId : undefined,

@@ -23,7 +23,6 @@ let warmed = false
 // Logged-in part of the app: keeps the local copy fresh and sends logged-out devices to /login
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const { status, data } = useStore()
-  const router = useRouter()
   const pathname = usePathname()
   const hasNew = useHasNewVersion()
   const toBuy = data?.list.filter((i) => !i.boughtAt).length ?? 0
@@ -42,8 +41,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (status === "unauthorized") router.replace("/login")
-  }, [status, router])
+    if (status === "unauthorized") window.location.replace("/login")
+  }, [status])
+
+  // Local copy cleared (e.g. after switching person) while the last sync said "ok": fetch again
+  useEffect(() => {
+    if (status === "ok" && !data) sync()
+  }, [status, data])
 
   // Once per app start, after online data arrived: keep all screens and the scanner for offline use
   useEffect(() => {

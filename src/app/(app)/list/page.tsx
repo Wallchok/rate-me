@@ -164,6 +164,7 @@ function Row({ item, data }: { item: ListItem; data: SyncData }) {
         {product ? (
           <Link href={`/product?id=${product.id}`} className={cn("block truncate font-medium", done && "line-through")}>
             {item.text}
+            {product.brand && <span className="font-normal text-muted-foreground"> · {product.brand}</span>}
           </Link>
         ) : (
           <p className={cn("truncate font-medium", done && "line-through")}>{item.text}</p>

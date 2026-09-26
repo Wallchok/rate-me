@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Check, Download, LogOut, Pencil, Sparkles, Trash2, UserRound, X } from "lucide-react";
 import { APP_VERSION } from "@/lib/changelog";
 import { useHasNewVersion } from "@/lib/seen-version";
@@ -13,6 +12,7 @@ import { PageHeader, WithData } from "@/components/app-chrome";
 import { PersonAvatar } from "@/components/person-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AiKeySettings } from "@/components/ai-key-settings";
+import { FeedbackSection } from "@/components/feedback-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -26,7 +26,6 @@ export default function SettingsPage() {
 }
 
 function Settings({ data }: { data: SyncData }) {
-  const router = useRouter();
   const me = data.persons.find((p) => p.id === data.meId);
   const hasNew = useHasNewVersion();
 
@@ -38,7 +37,8 @@ function Settings({ data }: { data: SyncData }) {
       return;
     }
     clearLocalData();
-    router.replace("/login");
+    // Full page load: a client navigation could reuse a cached "/login -> /" redirect and hang
+    window.location.replace("/login");
   }
 
   return (
@@ -71,6 +71,13 @@ function Settings({ data }: { data: SyncData }) {
         canDelete={() => true}
         deleteWarning="Kategorię można usunąć tylko, gdy nie ma w niej produktów."
       />
+
+      <p className="-mt-3 px-1 text-xs text-muted-foreground">
+        Nowy domownik: na swoim telefonie otwiera ten sam adres apki, wpisuje hasło domu i na ekranie „Kim jesteś?” dodaje
+        siebie.
+      </p>
+
+      <FeedbackSection persons={data.persons} />
 
       <AiKeySettings />
 
@@ -175,10 +182,10 @@ function EditableList({
                 }}
               >
                 <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus className="h-9" />
-                <Button type="submit" variant="ghost" size="icon" className="size-10" aria-label="Zapisz">
+                <Button type="submit" variant="ghost" size="icon" className="size-11" aria-label="Zapisz">
                   <Check className="size-4" />
                 </Button>
-                <Button type="button" variant="ghost" size="icon" className="size-10" onClick={() => setEditingId(null)} aria-label="Anuluj">
+                <Button type="button" variant="ghost" size="icon" className="size-11" onClick={() => setEditingId(null)} aria-label="Anuluj">
                   <X className="size-4" />
                 </Button>
               </form>
@@ -188,7 +195,7 @@ function EditableList({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-10"
+                  className="size-11"
                   onClick={() => {
                     setEditingId(item.id);
                     setEditValue(item.name);
@@ -198,7 +205,7 @@ function EditableList({
                   <Pencil className="size-4" />
                 </Button>
                 {canDelete(item.id) && (
-                  <Button variant="ghost" size="icon" className="size-10" onClick={() => setConfirmId(item.id)} aria-label={`Usuń: ${item.name}`}>
+                  <Button variant="ghost" size="icon" className="size-11" onClick={() => setConfirmId(item.id)} aria-label={`Usuń: ${item.name}`}>
                     <Trash2 className="size-4 text-muted-foreground" />
                   </Button>
                 )}

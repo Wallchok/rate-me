@@ -51,6 +51,7 @@ export interface SyncData {
   categories: Category[];
   products: Product[];
   list: ListItem[];
+  aiEnabled?: boolean;
   syncedAt: string;
 }
 

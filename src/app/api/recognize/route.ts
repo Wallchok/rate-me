@@ -7,6 +7,8 @@ const OPENAI_MODEL = "gpt-5-nano";
 // Newest free Flash first; the older one in case the newer id is not available for this key
 const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-2.5-flash"];
 const MAX_SIZE = 2 * 1024 * 1024;
+// Caps cost (OpenAI) or the free quota (Gemini) even if a phone with a session is misused
+const DAILY_LIMIT = 60;
 
 const PROMPT = `Na zdjęciu jest przód opakowania produktu spożywczego ze sklepu w Polsce.
 Odczytaj nazwę produktu po polsku (bez marki), markę i gramaturę lub pojemność (np. "20 x 2 g", "500 ml").
@@ -29,6 +31,8 @@ async function askOpenAi(key: string, prompt: string, base64: string, categories
     signal: AbortSignal.timeout(30000),
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      // Do not keep the household's photos in the OpenAI account logs
+      store: false,
       reasoning: { effort: "minimal" },
       input: [
         {
@@ -122,6 +126,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Brak zdjęcia" }, { status: 400 });
   }
   if (file.size > MAX_SIZE) return NextResponse.json({ error: "Zdjęcie za duże" }, { status: 400 });
+
+  const counterKey = `recognize:${new Date().toISOString().slice(0, 10)}`;
+  const usage = await prisma.usageCounter.upsert({
+    where: { key: counterKey },
+    update: { count: { increment: 1 } },
+    create: { key: counterKey, count: 1 },
+  });
+  if (usage.count > DAILY_LIMIT) {
+    return NextResponse.json({ error: `Dzisiejszy limit rozpoznań (${DAILY_LIMIT}) wyczerpany, jutro znowu zadziała` }, { status: 429 });
+  }
 
   const categories = await prisma.category.findMany({ select: { id: true, name: true } });
   const names = categories.map((c) => c.name);

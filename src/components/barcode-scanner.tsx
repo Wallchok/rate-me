@@ -106,7 +106,7 @@ function ScannerBody({ onDetected }: { onDetected: (code: string) => void }) {
         setStarting(false)
         setError(
           (e as Error).name === "NotAllowedError"
-            ? "Brak zgody na kamerę. Zezwól w ustawieniach przeglądarki albo wpisz kod ręcznie."
+            ? "Brak zgody na kamerę. Na iPhonie: Ustawienia → Aplikacje → Safari → Kamera → Pozwalaj. Albo wpisz cyfry spod kodu poniżej."
             : "Nie udało się włączyć kamery. Wpisz kod ręcznie."
         )
         return

@@ -3,6 +3,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 import { prisma } from "@/lib/prisma";
 
 const AI_KEY = "ai_api_key";
+// Name used by an earlier version; removed together with the current one
+const OLD_KEYS = ["openai_api_key"];
 
 export type AiProvider = "openai" | "gemini";
 export interface AiKey {
@@ -79,8 +81,9 @@ export async function aiKeyStatus() {
 export async function saveAiKey(key: string) {
   const value = encrypt(key);
   await prisma.appSetting.upsert({ where: { key: AI_KEY }, update: { value }, create: { key: AI_KEY, value } });
+  await prisma.appSetting.deleteMany({ where: { key: { in: OLD_KEYS } } });
 }
 
 export async function deleteAiKey() {
-  await prisma.appSetting.deleteMany({ where: { key: AI_KEY } });
+  await prisma.appSetting.deleteMany({ where: { key: { in: [AI_KEY, ...OLD_KEYS] } } });
 }

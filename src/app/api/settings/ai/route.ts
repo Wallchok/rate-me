@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readJson } from "@/lib/http";
-import { getExistingPersonId, unauthorized } from "@/lib/session";
+import { getPersonId, unauthorized } from "@/lib/session";
 import { aiKeyStatus, deleteAiKey, providerOf, saveAiKey } from "@/lib/secret-settings";
 
 export async function GET() {
-  if (!(await getExistingPersonId())) return unauthorized("no_person");
-  return NextResponse.json(await aiKeyStatus());
+  if (!(await getPersonId())) return unauthorized("no_person");
+  return NextResponse.json(await aiKeyStatus(), { headers: { "Cache-Control": "no-store" } });
 }
 
 // Asks the provider whether the key works; saves it only then
@@ -30,7 +30,7 @@ async function keyWorks(provider: "openai" | "gemini", key: string): Promise<boo
 }
 
 export async function PUT(request: NextRequest) {
-  if (!(await getExistingPersonId())) return unauthorized("no_person");
+  if (!(await getPersonId())) return unauthorized("no_person");
 
   const key = String((await readJson(request)).key ?? "").trim();
   const provider = providerOf(key);
@@ -53,11 +53,11 @@ export async function PUT(request: NextRequest) {
   }
 
   await saveAiKey(key);
-  return NextResponse.json(await aiKeyStatus());
+  return NextResponse.json(await aiKeyStatus(), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE() {
-  if (!(await getExistingPersonId())) return unauthorized("no_person");
+  if (!(await getPersonId())) return unauthorized("no_person");
   await deleteAiKey();
-  return NextResponse.json(await aiKeyStatus());
+  return NextResponse.json(await aiKeyStatus(), { headers: { "Cache-Control": "no-store" } });
 }

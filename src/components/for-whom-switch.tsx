@@ -20,7 +20,7 @@ export function ForWhomSwitch({ persons, value }: { persons: Person[]; value: Fo
           aria-checked={value === o.key}
           onClick={() => setForWhom(o.key)}
           className={cn(
-            "min-h-10 flex-1 truncate rounded-lg px-2 text-sm font-medium transition-colors",
+            "min-h-11 flex-1 truncate rounded-lg px-2 text-sm font-medium transition-colors",
             value === o.key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
           )}
         >

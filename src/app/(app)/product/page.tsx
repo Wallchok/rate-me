@@ -79,7 +79,7 @@ function ProductScreen() {
 function AddToListButton({ data, product }: { data: SyncData; product: Product }) {
   if (isOnList(data, product.id)) {
     return (
-      <Link href="/list" className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary">
+      <Link href="/list" className="flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary">
         <ListChecks className="size-4" />
         Na liście zakupów
       </Link>
@@ -91,7 +91,7 @@ function AddToListButton({ data, product }: { data: SyncData; product: Product }
         addItem(data, product.name, product.id);
         toast.success("Dodano do listy zakupów");
       }}
-      className="flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary"
+      className="flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary"
     >
       <ListPlus className="size-4" />
       Dodaj do listy
@@ -133,7 +133,7 @@ function Details({ data, product }: { data: SyncData; product: Product }) {
         <div className="min-w-0 space-y-1.5 py-1">
           {product.brand && <p className="text-sm text-muted-foreground">{product.brand}</p>}
           {category && (
-            <Link href={`/category?id=${category.id}`} className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-xs font-medium">
+            <Link href={`/category?id=${category.id}`} className="inline-flex min-h-11 items-center rounded-full bg-muted px-3 text-xs font-medium">
               {category.name}
             </Link>
           )}

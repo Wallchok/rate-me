@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     return row;
   });
 
-  if (format === "json") return NextResponse.json(rows);
+  if (format === "json") return NextResponse.json(rows, { headers: { "Cache-Control": "no-store" } });
 
   // Escaping only for spreadsheets, JSON keeps the stored values as they are
   const sheetRows = rows.map((row) =>
@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse("\uFEFF" + XLSX.utils.sheet_to_csv(sheet), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
+        "Cache-Control": "no-store",
         "Content-Disposition": 'attachment; filename="rateme.csv"',
       },
     });
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Cache-Control": "no-store",
       "Content-Disposition": 'attachment; filename="rateme.xlsx"',
     },
   });

@@ -2,7 +2,8 @@ import { cn } from "@/lib/utils"
 import { AVOID_UP_TO, LIKE_FROM } from "@/lib/ranking"
 import type { Person, Product } from "@/lib/types"
 
-const PERSON_COLORS = ["bg-violet-500", "bg-teal-500", "bg-orange-500", "bg-pink-500", "bg-sky-500"]
+// -600/-700 shades: white initials stay readable (4.5:1)
+const PERSON_COLORS = ["bg-violet-600", "bg-teal-700", "bg-orange-700", "bg-pink-700", "bg-sky-700"]
 
 export function personColor(persons: Person[], personId: number) {
   const idx = persons.findIndex((p) => p.id === personId)

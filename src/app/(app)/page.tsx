@@ -14,6 +14,7 @@ import { PageHeader, WithData } from "@/components/app-chrome";
 import { ForWhomSwitch } from "@/components/for-whom-switch";
 import { ProductRow } from "@/components/product-row";
 import { RankedList } from "@/components/ranked-list";
+import { InstallHint } from "@/components/install-hint";
 import { BarcodeScanner } from "@/components/barcode-scanner";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -105,6 +106,7 @@ function Home({ data }: { data: SyncData }) {
 
   return (
     <main className="space-y-4 pb-6">
+      <InstallHint />
       <div className="space-y-3 px-4">
         <ForWhomSwitch persons={data.persons} value={forWhom} />
         <div className="relative">
@@ -174,7 +176,7 @@ function CategoryChips({
           aria-checked={value === c.key}
           onClick={() => setCategory(c.key)}
           className={cn(
-            "flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
+            "flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors",
             value === c.key ? "border-primary bg-primary text-primary-foreground" : "bg-card text-foreground active:bg-muted"
           )}
         >

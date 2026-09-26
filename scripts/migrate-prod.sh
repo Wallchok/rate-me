@@ -47,9 +47,10 @@ for dir in prisma/migrations/*/; do
     continue
   fi
   echo "applying: $name"
-  turso db shell "$DB" < "$dir/migration.sql"
-  turso db shell "$DB" "INSERT INTO _applied_migrations (name) VALUES ('$name');" >/dev/null
+  # Migration and its record in one transaction: a dropped connection leaves neither half behind
+  { echo "BEGIN;"; cat "$dir/migration.sql"; echo "INSERT INTO _applied_migrations (name) VALUES ('$name');"; echo "COMMIT;"; } \
+    | turso db shell "$DB"
 done
 
-[ $pending -eq 0 ] && echo "Production is up to date."
+[ $pending -eq 0 ] && echo "$DB is up to date."
 exit 0

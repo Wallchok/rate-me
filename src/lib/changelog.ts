@@ -9,6 +9,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.8.0",
+    date: "2026-09-26",
+    title: "Gotowe do testów",
+    changes: [
+      "„Zgłoś problem albo pomysł” w Ustawieniach; błędy apki też zapisują się tam same",
+      "Podpowiedź, jak dodać apkę do ekranu głównego iPhone'a albo Androida",
+      "Jaśniejsze logowanie: skąd wziąć hasło domu, osobny komunikat przy braku internetu",
+      "Zmiana hasła domu wylogowuje wszystkie telefony",
+      "Większe przyciski i wyraźniejsze kolory",
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-09-26",
     title: "Wspólna lista zakupów",

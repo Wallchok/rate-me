@@ -214,7 +214,7 @@ export function ProductForm({
             <button
               type="button"
               onClick={() => update({ imageUrl: "" })}
-              className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/60 text-white"
+              className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-full bg-black/60 text-white"
               aria-label="Usuń zdjęcie"
             >
               <X className="size-4" />

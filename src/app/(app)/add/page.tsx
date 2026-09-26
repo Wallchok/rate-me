@@ -186,7 +186,12 @@ function AddFlow({ data }: { data: SyncData }) {
       {stage.kind === "form" && (
         <>
           {stage.info && <p className="rounded-xl bg-muted p-3 text-sm">{stage.info}</p>}
-          {stage.recognize && (
+          {stage.recognize && !data.aiEnabled && (
+            <p className="text-xs text-muted-foreground">
+              Apka może też rozpoznać produkt ze zdjęcia opakowania: włączysz to w Ustawieniach (darmowy klucz Gemini).
+            </p>
+          )}
+          {stage.recognize && data.aiEnabled && (
             <RecognizeButton
               onRecognized={(patch) =>
                 setStage({
