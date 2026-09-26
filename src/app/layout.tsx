@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PWARegister } from "@/components/pwa-register";
@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RateMe — Oceniaj produkty spożywcze",
-  description: "Oceniaj i porównuj produkty spożywcze z różnych sklepów",
+  title: "RateMe: co lubimy, co kupić",
+  description: "Domowe oceny produktów spożywczych i podpowiedzi, co kupić",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -27,7 +27,11 @@ export const metadata: Metadata = {
   icons: {
     apple: "/icons/icon-192.png",
   },
+};
+
+export const viewport: Viewport = {
   themeColor: "#6d5dd3",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

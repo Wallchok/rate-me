@@ -1,4 +1,7 @@
 import sharp from "sharp";
+import { fileURLToPath } from "url";
+
+const iconsDir = fileURLToPath(new URL("../public/icons/", import.meta.url));
 
 function createSVG(size) {
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
@@ -13,7 +16,7 @@ function createSVG(size) {
 </svg>`);
 }
 
-await sharp(createSVG(192)).png().toFile("/Users/mwalczak/Code/my_projects/rate-me/public/icons/icon-192.png");
-await sharp(createSVG(512)).png().toFile("/Users/mwalczak/Code/my_projects/rate-me/public/icons/icon-512.png");
+await sharp(createSVG(192)).png().toFile(`${iconsDir}icon-192.png`);
+await sharp(createSVG(512)).png().toFile(`${iconsDir}icon-512.png`);
 
 console.log("PWA icons generated!");

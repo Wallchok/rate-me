@@ -1,7 +1,7 @@
 {
-  "name": "RateMe — Oceniaj produkty spożywcze",
+  "name": "RateMe: co lubimy, co kupić",
   "short_name": "RateMe",
-  "description": "Oceniaj i porównuj produkty spożywcze z różnych sklepów",
+  "description": "Domowe oceny produktów spożywczych i podpowiedzi, co kupić",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f1a",

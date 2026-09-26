@@ -47,5 +47,9 @@ next-env.d.ts
 !/public/uploads/.gitkeep
 
 # database
+dev.db
 prisma/dev.db
 prisma/dev.db-journal
+
+# copied from zxing-wasm on npm install
+/public/zxing

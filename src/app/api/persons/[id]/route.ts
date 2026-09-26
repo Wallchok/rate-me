@@ -1,88 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseId, readJson } from "@/lib/http";
+import { getPersonId, isNotFound, isUniqueViolation, unauthorized } from "@/lib/session";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const personId = parseInt(id);
+type RouteParams = { params: Promise<{ id: string }> };
 
-  const countOnly = request.nextUrl.searchParams.get("count") === "true";
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+  if (!(await getPersonId())) return unauthorized("no_person");
 
-  if (countOnly) {
-    const count = await prisma.rating.count({
-      where: { personId },
-    });
-    return NextResponse.json({ count });
-  }
+  const id = parseId((await params).id);
+  if (!id) return NextResponse.json({ error: "Nie znaleziono" }, { status: 404 });
+  const body = await readJson(request);
+  const name = typeof body.name === "string" ? body.name.trim().slice(0, 40) : "";
+  if (!name) return NextResponse.json({ error: "Podaj imię" }, { status: 400 });
 
-  const person = await prisma.person.findUnique({
-    where: { id: personId },
-  });
-
-  if (!person) {
-    return NextResponse.json({ error: "Person not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(person);
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
   try {
-    const { id } = await params;
-    const personId = parseInt(id);
-    const body = await request.json();
-    const { name } = body;
-
-    if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
-
-    const person = await prisma.person.update({
-      where: { id: personId },
-      data: { name: name.trim() },
-    });
-
-    return NextResponse.json(person);
+    const person = await prisma.person.update({ where: { id: id }, data: { name } });
+    return NextResponse.json({ id: person.id, name: person.name });
   } catch (error) {
-    if ((error as { code?: string }).code === "P2002") {
-      return NextResponse.json({ error: "Person with this name already exists" }, { status: 409 });
-    }
-    if ((error as { code?: string }).code === "P2025") {
-      return NextResponse.json({ error: "Person not found" }, { status: 404 });
-    }
-    console.error("PUT /api/persons/[id] error:", error);
-    return NextResponse.json({ error: "Failed to update person" }, { status: 500 });
+    if (isUniqueViolation(error)) return NextResponse.json({ error: "Takie imię już jest" }, { status: 409 });
+    if (isNotFound(error)) return NextResponse.json({ error: "Nie ma takiej osoby" }, { status: 404 });
+    throw error;
   }
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// Removes the person together with all their ratings (cascade)
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  const me = await getPersonId();
+  if (!me) return unauthorized("no_person");
+
+  const id = parseId((await params).id);
+  if (!id) return NextResponse.json({ error: "Nie znaleziono" }, { status: 404 });
+  if (id === me) return NextResponse.json({ error: "Nie możesz usunąć samego siebie" }, { status: 400 });
   try {
-    const { id } = await params;
-    const personId = parseInt(id);
-
-    // Delete ratings by this person first
-    await prisma.rating.deleteMany({
-      where: { personId },
-    });
-
-    await prisma.person.delete({
-      where: { id: personId },
-    });
-
-    return NextResponse.json({ success: true });
+    await prisma.person.delete({ where: { id: id } });
+    return NextResponse.json({ ok: true });
   } catch (error) {
-    if ((error as { code?: string }).code === "P2025") {
-      return NextResponse.json({ error: "Person not found" }, { status: 404 });
-    }
-    console.error("DELETE /api/persons/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete person" }, { status: 500 });
+    if (isNotFound(error)) return NextResponse.json({ error: "Nie ma takiej osoby" }, { status: 404 });
+    throw error;
   }
 }

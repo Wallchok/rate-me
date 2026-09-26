@@ -1,56 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { readJson } from "@/lib/http";
+import { getPersonId, isUniqueViolation, unauthorized } from "@/lib/session";
+import { parseProductInput, parseRatingInput } from "@/lib/product-input";
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = request.nextUrl;
-    const storeId = searchParams.get("storeId");
-    const categoryId = searchParams.get("categoryId");
-
-    const where: Record<string, unknown> = {};
-    if (storeId) where.storeId = Number(storeId);
-    if (categoryId) where.categoryId = Number(categoryId);
-
-    const products = await prisma.product.findMany({
-      where,
-      include: { category: true, store: true, ratings: true },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error("GET /api/products error:", error);
-    return NextResponse.json({ error: "Failed to fetch products" }, { status: 500 });
-  }
-}
-
+// Creates a product, optionally with a new category and the author's first rating
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { name, categoryId, storeId, imageUrl, price, calories, protein, carbs, fat } = body;
+  const personId = await getPersonId();
+  if (!personId) return unauthorized("no_person");
 
-    if (!name || !categoryId) {
-      return NextResponse.json({ error: "name and categoryId are required" }, { status: 400 });
+  const body = await readJson(request);
+  const input = parseProductInput(body);
+  if (typeof input === "string") return NextResponse.json({ error: input }, { status: 400 });
+
+  const rating =
+    body.rating && typeof body.rating === "object" ? parseRatingInput(body.rating as Record<string, unknown>) : null;
+  if (typeof rating === "string") return NextResponse.json({ error: rating }, { status: 400 });
+
+  if (input.ean) {
+    const existing = await prisma.product.findUnique({ where: { ean: input.ean } });
+    if (existing) {
+      return NextResponse.json(
+        { error: "Ten produkt już jest w bazie", productId: existing.id },
+        { status: 409 },
+      );
     }
+  }
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        categoryId: Number(categoryId),
-        storeId: storeId ? Number(storeId) : null,
-        imageUrl: imageUrl || null,
-        price: price != null ? Number(price) : null,
-        calories: calories != null ? Number(calories) : null,
-        protein: protein != null ? Number(protein) : null,
-        carbs: carbs != null ? Number(carbs) : null,
-        fat: fat != null ? Number(fat) : null,
-      },
-      include: { category: true, store: true },
+  const { newCategory, categoryId, ...fields } = input;
+
+  try {
+    const product = await prisma.$transaction(async (tx) => {
+      const category = newCategory
+        ? await tx.category.upsert({ where: { name: newCategory }, update: {}, create: { name: newCategory } })
+        : await tx.category.findUnique({ where: { id: categoryId } });
+      if (!category) throw new Error("CATEGORY_NOT_FOUND");
+
+      return tx.product.create({
+        data: {
+          ...fields,
+          categoryId: category.id,
+          ...(rating && { ratings: { create: { ...rating, personId } } }),
+        },
+      });
     });
-
-    return NextResponse.json(product, { status: 201 });
+    return NextResponse.json({ id: product.id }, { status: 201 });
   } catch (error) {
-    console.error("POST /api/products error:", error);
-    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    if ((error as Error).message === "CATEGORY_NOT_FOUND") {
+      return NextResponse.json({ error: "Nie ma takiej kategorii" }, { status: 400 });
+    }
+    if (isUniqueViolation(error)) {
+      return NextResponse.json({ error: "Ten produkt już jest w bazie" }, { status: 409 });
+    }
+    throw error;
   }
 }

@@ -1,7 +1,8 @@
 -- CreateTable
 CREATE TABLE "Person" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "name" TEXT NOT NULL
+    "name" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- CreateTable
@@ -11,27 +12,22 @@ CREATE TABLE "Category" (
 );
 
 -- CreateTable
-CREATE TABLE "Store" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "name" TEXT NOT NULL
-);
-
--- CreateTable
 CREATE TABLE "Product" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT NOT NULL,
+    "brand" TEXT,
+    "ean" TEXT,
     "categoryId" INTEGER NOT NULL,
-    "storeId" INTEGER,
     "imageUrl" TEXT,
-    "price" REAL,
+    "nutriScore" TEXT,
     "calories" REAL,
     "protein" REAL,
     "carbs" REAL,
+    "sugar" REAL,
     "fat" REAL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "Product_storeId_fkey" FOREIGN KEY ("storeId") REFERENCES "Store" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -42,8 +38,9 @@ CREATE TABLE "Rating" (
     "productId" INTEGER NOT NULL,
     "personId" INTEGER NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "Rating_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "Rating_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    CONSTRAINT "Rating_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex
@@ -53,7 +50,7 @@ CREATE UNIQUE INDEX "Person_name_key" ON "Person"("name");
 CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Store_name_key" ON "Store"("name");
+CREATE UNIQUE INDEX "Product_ean_key" ON "Product"("ean");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Rating_productId_personId_key" ON "Rating"("productId", "personId");

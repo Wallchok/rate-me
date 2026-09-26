@@ -1,46 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseId, readJson } from "@/lib/http";
+import { getPersonId, unauthorized } from "@/lib/session";
+import { parseRatingInput } from "@/lib/product-input";
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { productId, personId, score, note } = body;
+// Saves the logged-in person's rating. personId never comes from the request body.
+export async function PUT(request: NextRequest) {
+  const personId = await getPersonId();
+  if (!personId) return unauthorized("no_person");
 
-    if (!productId || !personId || score == null) {
-      return NextResponse.json(
-        { error: "productId, personId, and score are required" },
-        { status: 400 },
-      );
-    }
+  const body = await readJson(request);
+  const productId = parseId(body.productId);
+  if (!productId) return NextResponse.json({ error: "Nie ma takiego produktu" }, { status: 404 });
+  const rating = parseRatingInput(body);
+  if (typeof rating === "string") return NextResponse.json({ error: rating }, { status: 400 });
 
-    const scoreNum = Number(score);
-    if (!Number.isInteger(scoreNum) || scoreNum < 1 || scoreNum > 10) {
-      return NextResponse.json({ error: "score must be an integer between 1 and 10" }, { status: 400 });
-    }
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) return NextResponse.json({ error: "Nie ma takiego produktu" }, { status: 404 });
 
-    const rating = await prisma.rating.upsert({
-      where: {
-        productId_personId: {
-          productId: Number(productId),
-          personId: Number(personId),
-        },
-      },
-      update: {
-        score: scoreNum,
-        note: note !== undefined ? note : undefined,
-      },
-      create: {
-        productId: Number(productId),
-        personId: Number(personId),
-        score: scoreNum,
-        note: note || null,
-      },
-      include: { product: true, person: true },
-    });
+  await prisma.rating.upsert({
+    where: { productId_personId: { productId, personId } },
+    update: rating,
+    create: { ...rating, productId, personId },
+  });
+  return NextResponse.json({ ok: true });
+}
 
-    return NextResponse.json(rating, { status: 200 });
-  } catch (error) {
-    console.error("POST /api/ratings error:", error);
-    return NextResponse.json({ error: "Failed to save rating" }, { status: 500 });
-  }
+export async function DELETE(request: NextRequest) {
+  const personId = await getPersonId();
+  if (!personId) return unauthorized("no_person");
+
+  const productId = parseId(request.nextUrl.searchParams.get("productId"));
+  if (!productId) return NextResponse.json({ error: "Nie ma takiego produktu" }, { status: 404 });
+  await prisma.rating.deleteMany({ where: { productId, personId } });
+  return NextResponse.json({ ok: true });
 }

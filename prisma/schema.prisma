@@ -8,9 +8,10 @@ datasource db {
 }
 
 model Person {
-  id      Int      @id @default(autoincrement())
-  name    String   @unique
-  ratings Rating[]
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  ratings   Rating[]
 }
 
 model Category {
@@ -19,41 +20,38 @@ model Category {
   products Product[]
 }
 
-model Store {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
-  products Product[]
-}
-
 model Product {
   id         Int      @id @default(autoincrement())
   name       String
+  brand      String?
+  ean        String?  @unique
   categoryId Int
-  storeId    Int?
   imageUrl   String?
-  price      Float?
+  nutriScore String?
+  // Nutrition values per 100 g
   calories   Float?
   protein    Float?
   carbs      Float?
+  sugar      Float?
   fat        Float?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   category Category @relation(fields: [categoryId], references: [id])
-  store    Store?   @relation(fields: [storeId], references: [id])
   ratings  Rating[]
 }
 
 model Rating {
-  id        Int      @id @default(autoincrement())
-  score     Int
-  note      String?
-  productId Int
-  personId  Int
-  createdAt DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  score        Int
+  note         String?
+  productId    Int
+  personId     Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  person  Person  @relation(fields: [personId], references: [id])
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([productId, personId])
 }

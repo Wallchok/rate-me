@@ -6,18 +6,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const url = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  // Turso in production, local SQLite file (same one Prisma CLI uses) in dev
+  const url = process.env.TURSO_DATABASE_URL ?? process.env.DATABASE_URL ?? "file:./dev.db";
+  const authToken = url.startsWith("file:") ? undefined : process.env.TURSO_AUTH_TOKEN;
 
-  // Remote Turso DB
-  if (url && !url.startsWith("file:")) {
-    const adapter = new PrismaLibSql({ url, authToken });
-    return new PrismaClient({ adapter });
-  }
-
-  // Local SQLite fallback
-  const dbPath = url?.replace("file:", "") ?? "prisma/dev.db";
-  const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
+  const adapter = new PrismaLibSql({ url, authToken });
   return new PrismaClient({ adapter });
 }
 

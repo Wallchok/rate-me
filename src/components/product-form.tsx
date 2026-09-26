@@ -1,424 +1,293 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { ChevronDown, Plus, Upload, ImageIcon, X, Camera } from "lucide-react"
+import { useRef, useState } from "react"
+import { Camera, ChevronDown, ImageIcon, Loader2, X } from "lucide-react"
+import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { compressImage } from "@/lib/image"
+import type { Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
 
-interface Category {
-  id: number
+export interface ProductFormValues {
   name: string
-}
-
-interface Store {
-  id: number
-  name: string
-}
-
-export interface ProductFormData {
-  name: string
-  categoryId: number | null
+  brand: string
+  ean: string
+  categoryId: string // category id or "__new__"
   newCategory: string
-  storeId: number | null
-  newStore: string
   imageUrl: string
-  price: string
+  nutriScore: string
   calories: string
   protein: string
   carbs: string
+  sugar: string
   fat: string
 }
 
-interface ProductFormProps {
-  categories: Category[]
-  stores: Store[]
-  initialData?: Partial<ProductFormData>
-  onSubmit: (data: ProductFormData) => void
-  submitLabel?: string
-}
-
-const defaultData: ProductFormData = {
+export const emptyProductForm: ProductFormValues = {
   name: "",
-  categoryId: null,
+  brand: "",
+  ean: "",
+  categoryId: "",
   newCategory: "",
-  storeId: null,
-  newStore: "",
   imageUrl: "",
-  price: "",
+  nutriScore: "",
   calories: "",
   protein: "",
   carbs: "",
+  sugar: "",
   fat: "",
 }
 
-function FormSelect({
-  value,
-  onChange,
-  children,
-  className,
-}: {
-  value: string
-  onChange: (val: string) => void
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn("relative", className)}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 pr-8 text-sm transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring/50 cursor-pointer dark:bg-input/30 dark:hover:bg-input/50"
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-    </div>
-  )
+// Body for POST/PUT /api/products
+export function toProductPayload(v: ProductFormValues) {
+  const isNew = v.categoryId === "__new__"
+  return {
+    name: v.name,
+    brand: v.brand,
+    ean: v.ean,
+    categoryId: isNew ? undefined : Number(v.categoryId),
+    newCategory: isNew ? v.newCategory : undefined,
+    imageUrl: v.imageUrl,
+    nutriScore: v.nutriScore,
+    calories: v.calories,
+    protein: v.protein,
+    carbs: v.carbs,
+    sugar: v.sugar,
+    fat: v.fat,
+  }
 }
 
+const NUTRITION: { key: keyof ProductFormValues; label: string }[] = [
+  { key: "calories", label: "Kalorie (kcal)" },
+  { key: "protein", label: "Białko (g)" },
+  { key: "carbs", label: "Węglowodany (g)" },
+  { key: "sugar", label: "w tym cukry (g)" },
+  { key: "fat", label: "Tłuszcz (g)" },
+]
+
+const selectClass =
+  "h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 pr-8 text-base md:text-sm dark:bg-input/30"
+
 export function ProductForm({
+  initial,
   categories,
-  stores,
-  initialData,
+  submitLabel,
   onSubmit,
-  submitLabel = "Zapisz",
-}: ProductFormProps) {
-  const [data, setData] = useState<ProductFormData>({
-    ...defaultData,
-    ...initialData,
-  })
-  const [macrosOpen, setMacrosOpen] = useState(false)
-  const [creatingCategory, setCreatingCategory] = useState(false)
-  const [creatingStore, setCreatingStore] = useState(false)
-
-  function update(patch: Partial<ProductFormData>) {
-    setData((prev) => ({ ...prev, ...patch }))
-  }
-
-  function handleCategoryChange(val: string) {
-    if (val === "__new__") {
-      setCreatingCategory(true)
-      update({ categoryId: null })
-    } else {
-      setCreatingCategory(false)
-      update({ categoryId: val ? parseInt(val) : null, newCategory: "" })
-    }
-  }
-
-  function handleStoreChange(val: string) {
-    if (val === "__new__") {
-      setCreatingStore(true)
-      update({ storeId: null })
-    } else if (val === "") {
-      setCreatingStore(false)
-      update({ storeId: null, newStore: "" })
-    } else {
-      setCreatingStore(false)
-      update({ storeId: parseInt(val), newStore: "" })
-    }
-  }
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
+  children,
+}: {
+  initial: ProductFormValues
+  categories: Category[]
+  submitLabel: string
+  onSubmit: (values: ProductFormValues) => Promise<void>
+  // Extra fields rendered above the submit button (e.g. first rating)
+  children?: React.ReactNode
+}) {
+  const [v, setV] = useState(initial)
   const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [nutritionOpen, setNutritionOpen] = useState(
+    NUTRITION.some(({ key }) => initial[key] !== "") || initial.nutriScore !== ""
+  )
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const update = (patch: Partial<ProductFormValues>) => setV((prev) => ({ ...prev, ...patch }))
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ""
     if (!file) return
-
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      const json = await res.json()
-      if (res.ok) {
-        update({ imageUrl: json.url })
+      let blob: Blob
+      try {
+        blob = await compressImage(file)
+      } catch {
+        // e.g. HEIC outside iOS, the browser cannot decode it
+        toast.error("Nie udało się odczytać zdjęcia. Spróbuj zrobić je aparatem albo wybierz JPG.")
+        return
       }
+      const form = new FormData()
+      form.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }))
+      const res = await fetch("/api/upload", { method: "POST", body: form }).catch(() => null)
+      if (!res) {
+        toast.error("Brak połączenia. Zdjęcie można dodać tylko z internetem.")
+        return
+      }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json.error || "Nie udało się wysłać zdjęcia")
+        return
+      }
+      update({ imageUrl: json.url })
     } finally {
       setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  const categoryMissing = !v.categoryId || (v.categoryId === "__new__" && !v.newCategory.trim())
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
-    onSubmit(data)
+    if (categoryMissing) {
+      toast.error("Wybierz kategorię")
+      return
+    }
+    setSaving(true)
+    try {
+      await onSubmit(v)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={submit} className="space-y-5">
       <div className="space-y-2">
-        <Label htmlFor="product-name">Nazwa</Label>
+        <Label htmlFor="pf-name">Nazwa</Label>
         <Input
-          id="product-name"
-          placeholder="Nazwa produktu"
-          value={data.name}
+          id="pf-name"
+          value={v.name}
           onChange={(e) => update({ name: e.target.value })}
+          placeholder="np. Skyr naturalny"
           required
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Kategoria</Label>
-        {creatingCategory ? (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nazwa nowej kategorii"
-              value={data.newCategory}
-              onChange={(e) => update({ newCategory: e.target.value })}
-              autoFocus
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCreatingCategory(false)
-                update({ newCategory: "" })
-              }}
-            >
-              Anuluj
-            </Button>
-          </div>
-        ) : (
-          <FormSelect
-            value={data.categoryId?.toString() ?? ""}
-            onChange={handleCategoryChange}
-          >
-            <option value="" disabled>Wybierz kategorię</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id.toString()}>
-                {cat.name}
-              </option>
-            ))}
-            <option value="__new__">+ Utwórz nową kategorię</option>
-          </FormSelect>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label>Sklep</Label>
-        {creatingStore ? (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nazwa nowego sklepu"
-              value={data.newStore}
-              onChange={(e) => update({ newStore: e.target.value })}
-              autoFocus
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCreatingStore(false)
-                update({ newStore: "" })
-              }}
-            >
-              Anuluj
-            </Button>
-          </div>
-        ) : (
-          <FormSelect
-            value={data.storeId?.toString() ?? ""}
-            onChange={handleStoreChange}
-          >
-            <option value="">Wszędzie</option>
-            {stores.map((store) => (
-              <option key={store.id} value={store.id.toString()}>
-                {store.name}
-              </option>
-            ))}
-            <option value="__new__">+ Dodaj nowy sklep</option>
-          </FormSelect>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label>Zdjęcie</Label>
-        {data.imageUrl ? (
-          <div className="relative rounded-lg overflow-hidden border">
-            <img
-              src={data.imageUrl}
-              alt="Podgląd"
-              className="w-full max-h-48 object-contain bg-muted/30"
-            />
-            <button
-              type="button"
-              onClick={() => update({ imageUrl: "" })}
-              className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-6 cursor-pointer transition-colors",
-              uploading
-                ? "border-primary/50 bg-primary/5"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
-            )}
-          >
-            {uploading ? (
-              <div className="flex items-center gap-2 text-sm text-primary">
-                <Upload className="size-4 animate-bounce" />
-                Przesyłanie...
-              </div>
-            ) : (
-              <>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-primary/50 hover:bg-muted/50 transition-colors"
-                  >
-                    <Camera className="size-6 text-muted-foreground/50" />
-                    <span className="text-xs text-muted-foreground">Zrób zdjęcie</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-primary/50 hover:bg-muted/50 transition-colors"
-                  >
-                    <ImageIcon className="size-6 text-muted-foreground/50" />
-                    <span className="text-xs text-muted-foreground">Z galerii</span>
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground/60">
-                  JPG, PNG, WebP — maks. 5MB
-                </p>
-              </>
-            )}
-          </div>
-        )}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="environment"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-        {!data.imageUrl && (
-          <div className="flex items-center gap-2">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">lub wklej URL</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-        )}
-        {!data.imageUrl && (
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="pf-brand">Marka</Label>
+          <Input id="pf-brand" value={v.brand} onChange={(e) => update({ brand: e.target.value })} placeholder="opcjonalnie" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="pf-ean">Kod kreskowy</Label>
           <Input
-            type="url"
-            placeholder="https://..."
-            value={data.imageUrl}
-            onChange={(e) => update({ imageUrl: e.target.value })}
+            id="pf-ean"
+            inputMode="numeric"
+            value={v.ean}
+            onChange={(e) => update({ ean: e.target.value.replace(/\D/g, "") })}
+            placeholder="opcjonalnie"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="pf-category">Kategoria</Label>
+        <div className="relative">
+          <select
+            id="pf-category"
+            value={v.categoryId}
+            onChange={(e) => update({ categoryId: e.target.value })}
+            className={selectClass}
+          >
+            <option value="" disabled>
+              Wybierz kategorię
+            </option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+            <option value="__new__">+ Nowa kategoria</option>
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        </div>
+        {v.categoryId === "__new__" && (
+          <Input
+            value={v.newCategory}
+            onChange={(e) => update({ newCategory: e.target.value })}
+            placeholder="Nazwa nowej kategorii"
+            autoFocus
           />
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="product-price">Cena (zł)</Label>
-        <Input
-          id="product-price"
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder="0.00"
-          value={data.price}
-          onChange={(e) => update({ price: e.target.value })}
-        />
+        <Label>Zdjęcie</Label>
+        {v.imageUrl ? (
+          <div className="relative overflow-hidden rounded-xl border bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element -- preview of Blob/OFF image */}
+            <img src={v.imageUrl} alt="Podgląd" className="mx-auto max-h-48 object-contain" />
+            <button
+              type="button"
+              onClick={() => update({ imageUrl: "" })}
+              className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/60 text-white"
+              aria-label="Usuń zdjęcie"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="button" variant="outline" className="h-14" disabled={uploading} onClick={() => cameraRef.current?.click()}>
+              {uploading ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
+              Zrób zdjęcie
+            </Button>
+            <Button type="button" variant="outline" className="h-14" disabled={uploading} onClick={() => galleryRef.current?.click()}>
+              <ImageIcon className="size-5" />
+              Z galerii
+            </Button>
+          </div>
+        )}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
+        <input ref={galleryRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
       </div>
 
-      <Separator />
+      <div>
+        <button
+          type="button"
+          onClick={() => setNutritionOpen(!nutritionOpen)}
+          className="flex w-full items-center justify-between py-1 text-sm font-medium text-muted-foreground"
+        >
+          Skład na 100 g (opcjonalnie)
+          <ChevronDown className={cn("size-4 transition-transform", nutritionOpen && "rotate-180")} />
+        </button>
+        {nutritionOpen && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {NUTRITION.map(({ key, label }) => (
+              <div key={key} className="space-y-1">
+                <Label htmlFor={`pf-${key}`} className="text-xs">
+                  {label}
+                </Label>
+                <Input
+                  id={`pf-${key}`}
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.1"
+                  value={v[key]}
+                  onChange={(e) => update({ [key]: e.target.value })}
+                />
+              </div>
+            ))}
+            <div className="space-y-1">
+              <Label htmlFor="pf-nutri" className="text-xs">
+                Nutri-Score
+              </Label>
+              <select
+                id="pf-nutri"
+                value={v.nutriScore}
+                onChange={(e) => update({ nutriScore: e.target.value })}
+                className={selectClass}
+              >
+                <option value="">brak</option>
+                {["a", "b", "c", "d", "e"].map((g) => (
+                  <option key={g} value={g}>
+                    {g.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
-      <button
-        type="button"
-        onClick={() => setMacrosOpen(!macrosOpen)}
-        className="flex w-full items-center justify-between py-1 text-sm font-medium transition-colors hover:text-foreground text-muted-foreground"
-      >
-        Makroskładniki (opcjonalnie)
-        <ChevronDown
-          className={cn(
-            "size-4 transition-transform duration-200",
-            macrosOpen && "rotate-180"
-          )}
-        />
-      </button>
+      {children}
 
-      {macrosOpen && (
-        <div className="grid grid-cols-2 gap-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
-          <div className="space-y-1">
-            <Label htmlFor="macro-cal" className="text-xs">
-              Kalorie
-            </Label>
-            <Input
-              id="macro-cal"
-              type="number"
-              min="0"
-              placeholder="kcal"
-              value={data.calories}
-              onChange={(e) => update({ calories: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="macro-protein" className="text-xs">
-              Białko (g)
-            </Label>
-            <Input
-              id="macro-protein"
-              type="number"
-              min="0"
-              step="0.1"
-              placeholder="g"
-              value={data.protein}
-              onChange={(e) => update({ protein: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="macro-carbs" className="text-xs">
-              Węglowodany (g)
-            </Label>
-            <Input
-              id="macro-carbs"
-              type="number"
-              min="0"
-              step="0.1"
-              placeholder="g"
-              value={data.carbs}
-              onChange={(e) => update({ carbs: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="macro-fat" className="text-xs">
-              Tłuszcz (g)
-            </Label>
-            <Input
-              id="macro-fat"
-              type="number"
-              min="0"
-              step="0.1"
-              placeholder="g"
-              value={data.fat}
-              onChange={(e) => update({ fat: e.target.value })}
-            />
-          </div>
-        </div>
-      )}
-
-      <Button type="submit" className="w-full">
+      <Button type="submit" className="h-12 w-full text-base" disabled={saving || uploading}>
+        {saving && <Loader2 className="size-4 animate-spin" />}
         {submitLabel}
       </Button>
     </form>
