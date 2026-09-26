@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, PencilLine, ScanBarcode } from "lucide-react";
 import { toast } from "sonner";
 import { mutate, useStore } from "@/lib/store";
+import { normalizeEan } from "@/lib/ean";
 import type { SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { CatalogSearch } from "@/components/catalog-search";
 import { ProductForm, emptyProductForm, toProductPayload, type ProductFormValues } from "@/components/product-form";
 import { RatingFields, type RatingValue } from "@/components/rating-editor";
 import { buttonVariants } from "@/components/ui/button";
@@ -79,7 +81,7 @@ export default function AddPage() {
 }
 
 function knownStage(data: SyncData, ean: string): Stage | null {
-  const existing = data.products.find((p) => p.ean === ean);
+  const existing = data.products.find((p) => p.ean === normalizeEan(ean));
   return existing ? { kind: "known", productId: existing.id, name: existing.name } : null;
 }
 
@@ -131,6 +133,8 @@ function AddFlow({ data }: { data: SyncData }) {
     <main className="space-y-4 px-4 pb-6">
       {stage.kind === "choose" && (
         <div className="grid gap-3 pt-2">
+          <CatalogSearch products={(live ?? data).products} onPick={onScan} />
+          <p className="pt-1 text-center text-xs text-muted-foreground">albo</p>
           <button
             onClick={() => setScanOpen(true)}
             className="flex items-center gap-4 rounded-2xl border bg-card p-5 text-left active:bg-muted"

@@ -40,3 +40,12 @@ export interface SyncData {
   products: Product[];
   syncedAt: string;
 }
+
+// GET /api/off/search result row (Open Food Facts)
+export interface OffSearchHit {
+  ean: string;
+  name: string;
+  brand: string | null;
+  quantity: string | null;
+  thumbUrl: string | null;
+}

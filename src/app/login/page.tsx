@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { clearLocalData, sync } from "@/lib/store";
 import type { Person } from "@/lib/types";
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ kind: "checking" });
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -99,15 +100,29 @@ export default function LoginPage() {
           <label htmlFor="household-password" className="text-sm font-medium">
             Hasło domu
           </label>
-          <Input
-            id="household-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-12"
-            autoFocus
-          />
+          <div className="relative">
+            <Input
+              id="household-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-12 pr-12"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+              aria-pressed={showPassword}
+              className="absolute right-1 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground active:bg-muted"
+            >
+              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+            </button>
+          </div>
           <Button type="submit" className="h-12 w-full text-base" disabled={!password || busy}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             Dalej
