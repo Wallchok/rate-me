@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { APP_VERSION, RELEASES } from "@/lib/changelog";
+import { LATEST_NEWS, RELEASES } from "@/lib/changelog";
 import { markVersionSeen } from "@/lib/seen-version";
 import { PageHeader } from "@/components/app-chrome";
 
@@ -25,7 +25,7 @@ export default function ChangelogPage() {
                 {release.version}
               </span>
               <h2 className="min-w-0 flex-1 font-semibold">{release.title}</h2>
-              {release.version === APP_VERSION && <span className="text-xs text-muted-foreground">obecna</span>}
+              {release.version === LATEST_NEWS && <span className="text-xs text-muted-foreground">najnowsze</span>}
             </div>
             <p className="text-xs text-muted-foreground">{formatDate(release.date)}</p>
             <ul className="list-disc space-y-1 pl-5 text-sm">

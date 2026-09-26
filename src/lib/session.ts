@@ -40,7 +40,8 @@ export async function refreshSessionIfOld(session: SessionPayload) {
 }
 
 export function checkHouseholdPassword(input: string) {
-  const expected = process.env.HOUSEHOLD_PASSWORD;
+  // A trailing newline from pasting into Vercel would make the real password never match
+  const expected = process.env.HOUSEHOLD_PASSWORD?.replace(/[\r\n]+$/, "");
   if (!expected) throw new Error("HOUSEHOLD_PASSWORD is not set");
   const a = createHash("sha256").update(input).digest();
   const b = createHash("sha256").update(expected).digest();

@@ -1,5 +1,5 @@
-// What changed, in plain words for the household. Newest first.
-// The first entry is the app version: package.json must match it, scripts/deploy.sh checks that.
+// What changed for the household, in plain words. Newest first.
+// Only changes people notice; technical releases bump package.json but get no entry here.
 export interface Release {
   version: string;
   date: string; // YYYY-MM-DD
@@ -66,4 +66,8 @@ export const RELEASES: Release[] = [
   },
 ];
 
-export const APP_VERSION = RELEASES[0].version;
+// Version of the running app, from package.json (set in next.config.ts at build time)
+export const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+
+// Newest release people should hear about; drives the "something new" dot
+export const LATEST_NEWS = RELEASES[0].version;

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import { version } from "./package.json";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.112"],
+  // Shown in settings; one number per release, including technical ones
+  env: { NEXT_PUBLIC_APP_VERSION: version },
   async headers() {
     return [
       {
