@@ -25,7 +25,8 @@ npm run build
 
 PROD_URL="https://yummy-rate.vercel.app"
 # Remember what is live now, so a broken release can be rolled back to it
-previous="$(vercel inspect "$PROD_URL" 2>&1 | awk '$1 == "url" { print $2; exit }')"
+# awk reads everything: stopping early breaks the pipe and vercel exits with an error
+previous="$(vercel inspect "$PROD_URL" 2>&1 | awk '$1 == "url" && !found { print $2; found = 1 }' || true)"
 
 scripts/migrate-prod.sh
 vercel --prod --yes
