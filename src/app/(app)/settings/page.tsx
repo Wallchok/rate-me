@@ -12,7 +12,7 @@ import type { SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
 import { PersonAvatar } from "@/components/person-badge";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { OpenAiKeySettings } from "@/components/openai-key-settings";
+import { AiKeySettings } from "@/components/ai-key-settings";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -72,7 +72,7 @@ function Settings({ data }: { data: SyncData }) {
         deleteWarning="Kategorię można usunąć tylko, gdy nie ma w niej produktów."
       />
 
-      <OpenAiKeySettings />
+      <AiKeySettings />
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-muted-foreground">Eksport</h2>

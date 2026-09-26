@@ -8,12 +8,15 @@ import { Input } from "@/components/ui/input"
 
 interface KeyStatus {
   configured: boolean
+  provider: "openai" | "gemini" | null
   source: "env" | "app" | null
   hint: string | null
 }
 
-// Write-only field for the OpenAI key used by "Rozpoznaj ze zdjęcia opakowania"
-export function OpenAiKeySettings() {
+const PROVIDER = { openai: "OpenAI", gemini: "Gemini" } as const
+
+// Write-only field for the AI key (OpenAI or Gemini) used by "Rozpoznaj ze zdjęcia opakowania"
+export function AiKeySettings() {
   const [status, setStatus] = useState<KeyStatus | null>(null)
   const [failed, setFailed] = useState(false)
   const [key, setKey] = useState("")
@@ -21,7 +24,7 @@ export function OpenAiKeySettings() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    fetch("/api/settings/openai")
+    fetch("/api/settings/ai")
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setStatus)
       .catch(() => setFailed(true))
@@ -30,7 +33,7 @@ export function OpenAiKeySettings() {
   async function call(method: "PUT" | "DELETE") {
     setBusy(true)
     try {
-      const res = await fetch("/api/settings/openai", {
+      const res = await fetch("/api/settings/ai", {
         method,
         headers: { "Content-Type": "application/json" },
         body: method === "PUT" ? JSON.stringify({ key }) : undefined,
@@ -59,11 +62,12 @@ export function OpenAiKeySettings() {
           <p className="text-sm">
             {status.configured ? (
               <>
-                ✅ Włączone, klucz kończy się na <span className="font-mono">…{status.hint}</span>
+                ✅ Włączone ({status.provider && PROVIDER[status.provider]}), klucz kończy się na{" "}
+                <span className="font-mono">…{status.hint}</span>
                 {status.source === "env" && " (ustawiony na serwerze)"}
               </>
             ) : (
-              "Wyłączone. Wklej klucz OpenAI, żeby apka rozpoznawała produkty ze zdjęcia opakowania."
+              "Wyłączone. Wklej klucz Gemini (darmowy) albo OpenAI, żeby apka rozpoznawała produkty ze zdjęcia opakowania."
             )}
           </p>
         )}
@@ -81,13 +85,13 @@ export function OpenAiKeySettings() {
                   type={show ? "text" : "password"}
                   value={key}
                   onChange={(e) => setKey(e.target.value)}
-                  placeholder={status.configured ? "Nowy klucz sk-..." : "sk-..."}
+                  placeholder={status.configured ? "Nowy klucz" : "AIza... albo sk-..."}
                   autoComplete="off"
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
                   className="h-11 pr-11"
-                  aria-label="Klucz OpenAI"
+                  aria-label="Klucz AI"
                 />
                 <button
                   type="button"
@@ -111,11 +115,15 @@ export function OpenAiKeySettings() {
           </>
         )}
         <p className="text-xs text-muted-foreground">
-          Klucz utworzysz na{" "}
+          Darmowy klucz Gemini:{" "}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">
+            aistudio.google.com/apikey
+          </a>
+          . Albo klucz OpenAI:{" "}
           <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="underline">
             platform.openai.com/api-keys
-          </a>
-          . Jest zapisany zaszyfrowany i nie da się go tu podejrzeć. Jedno zdjęcie kosztuje ułamek grosza.
+          </a>{" "}
+          (ułamek grosza za zdjęcie). Klucz jest zapisany zaszyfrowany i nie da się go tu podejrzeć.
         </p>
       </div>
     </section>

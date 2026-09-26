@@ -18,7 +18,7 @@ export const RELEASES: Release[] = [
       "Przy wpisywaniu apka podpowiada Wasze najlepiej ocenione produkty",
       "Na stronie produktu przycisk „Dodaj do listy”",
       "Gdy kodu nie ma w bazie, apka i tak podpowie producenta",
-      "Rozpoznawanie produktu ze zdjęcia opakowania: nazwa, marka i kategoria wpisują się same (włączasz je w Ustawieniach kluczem OpenAI)",
+      "Rozpoznawanie produktu ze zdjęcia opakowania: nazwa, marka i kategoria wpisują się same (włączasz je w Ustawieniach darmowym kluczem Gemini albo kluczem OpenAI)",
     ],
   },
   {

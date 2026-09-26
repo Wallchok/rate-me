@@ -2,7 +2,20 @@ import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 
-const OPENAI_KEY = "openai_api_key";
+const AI_KEY = "ai_api_key";
+
+export type AiProvider = "openai" | "gemini";
+export interface AiKey {
+  provider: AiProvider;
+  key: string;
+}
+
+// OpenAI keys start with sk-, Google (Gemini) API keys with AIza
+export function providerOf(key: string): AiProvider | null {
+  if (/^sk-[A-Za-z0-9_-]{20,}$/.test(key)) return "openai";
+  if (/^AIza[A-Za-z0-9_-]{30,}$/.test(key)) return "gemini";
+  return null;
+}
 
 // AES-256-GCM with a key derived from AUTH_SECRET: the database alone does not reveal the secret
 function cipherKey() {
@@ -25,11 +38,21 @@ function decrypt(stored: string) {
   return Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString("utf8");
 }
 
-async function storedOpenAiKey(): Promise<string | null> {
-  const row = await prisma.appSetting.findUnique({ where: { key: OPENAI_KEY } });
+function fromEnv(): AiKey | null {
+  const openai = process.env.OPENAI_API_KEY?.trim();
+  if (openai) return { provider: "openai", key: openai };
+  const gemini = process.env.GEMINI_API_KEY?.trim();
+  if (gemini) return { provider: "gemini", key: gemini };
+  return null;
+}
+
+async function stored(): Promise<AiKey | null> {
+  const row = await prisma.appSetting.findUnique({ where: { key: AI_KEY } });
   if (!row) return null;
   try {
-    return decrypt(row.value);
+    const key = decrypt(row.value);
+    const provider = providerOf(key);
+    return provider ? { provider, key } : null;
   } catch {
     // AUTH_SECRET changed since it was saved: the key has to be entered again
     return null;
@@ -37,26 +60,27 @@ async function storedOpenAiKey(): Promise<string | null> {
 }
 
 // Vercel env wins, then the key saved in the app
-export async function getOpenAiKey(): Promise<string | null> {
-  return process.env.OPENAI_API_KEY?.trim() || (await storedOpenAiKey());
+export async function getAiKey(): Promise<AiKey | null> {
+  return fromEnv() ?? (await stored());
 }
 
-export async function openAiKeyStatus() {
-  const fromEnv = process.env.OPENAI_API_KEY?.trim();
-  const key = fromEnv || (await storedOpenAiKey());
+export async function aiKeyStatus() {
+  const env = fromEnv();
+  const key = env ?? (await stored());
   return {
     configured: Boolean(key),
-    source: fromEnv ? ("env" as const) : key ? ("app" as const) : null,
+    provider: key?.provider ?? null,
+    source: env ? ("env" as const) : key ? ("app" as const) : null,
     // Never the key itself, only its end to recognise which one it is
-    hint: key ? key.slice(-4) : null,
+    hint: key ? key.key.slice(-4) : null,
   };
 }
 
-export async function saveOpenAiKey(key: string) {
+export async function saveAiKey(key: string) {
   const value = encrypt(key);
-  await prisma.appSetting.upsert({ where: { key: OPENAI_KEY }, update: { value }, create: { key: OPENAI_KEY, value } });
+  await prisma.appSetting.upsert({ where: { key: AI_KEY }, update: { value }, create: { key: AI_KEY, value } });
 }
 
-export async function deleteOpenAiKey() {
-  await prisma.appSetting.deleteMany({ where: { key: OPENAI_KEY } });
+export async function deleteAiKey() {
+  await prisma.appSetting.deleteMany({ where: { key: AI_KEY } });
 }
