@@ -7,7 +7,7 @@ import { MessageSquare, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { mutate, sync, useStore } from "@/lib/store";
-import { ratingOf, verdict } from "@/lib/ranking";
+import { hasSkipped, ratingOf, verdict } from "@/lib/ranking";
 import type { Product, SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
 import { PersonAvatar, scoreBg, scoreTone } from "@/components/person-badge";
@@ -48,10 +48,10 @@ function ProductScreen() {
         actions={
           product && (
             <>
-              <Button variant="ghost" size="icon" className="size-10" onClick={() => setEditOpen(true)} aria-label="Edytuj produkt">
+              <Button variant="ghost" size="icon" className="size-11" onClick={() => setEditOpen(true)} aria-label="Edytuj produkt">
                 <Pencil className="size-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="size-10" onClick={() => setDeleteOpen(true)} aria-label="Usuń produkt">
+              <Button variant="ghost" size="icon" className="size-11" onClick={() => setDeleteOpen(true)} aria-label="Usuń produkt">
                 <Trash2 className="size-4 text-destructive" />
               </Button>
             </>
@@ -92,6 +92,7 @@ function NotLoaded({ online }: { online: boolean }) {
 function Details({ data, product }: { data: SyncData; product: Product }) {
   const category = data.categories.find((c) => c.id === product.categoryId);
   const mine = ratingOf(product, data.meId);
+  const skippedByMe = hasSkipped(product, data.meId);
   const v = verdict(product, data.persons);
   const nutrition = [
     { label: "kcal", value: product.calories },
@@ -108,7 +109,7 @@ function Details({ data, product }: { data: SyncData; product: Product }) {
         <div className="min-w-0 space-y-1.5 py-1">
           {product.brand && <p className="text-sm text-muted-foreground">{product.brand}</p>}
           {category && (
-            <Link href={`/category?id=${category.id}`} className="inline-block rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+            <Link href={`/category?id=${category.id}`} className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-xs font-medium">
               {category.name}
             </Link>
           )}
@@ -154,7 +155,11 @@ function Details({ data, product }: { data: SyncData; product: Product }) {
                   {person.name}
                   {person.id === data.meId && <span className="text-xs font-normal text-muted-foreground">(Ty)</span>}
                 </p>
-                {!r && <p className="text-sm text-muted-foreground">Jeszcze nieocenione</p>}
+                {!r && (
+                  <p className="text-sm text-muted-foreground">
+                    {hasSkipped(product, person.id) ? "Pomija ten produkt" : "Jeszcze nieocenione"}
+                  </p>
+                )}
                 {r?.note && (
                   <p className="flex gap-1.5 text-sm text-muted-foreground">
                     <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
@@ -169,7 +174,12 @@ function Details({ data, product }: { data: SyncData; product: Product }) {
 
       <section className="space-y-3 rounded-2xl bg-muted/50 p-4">
         <h2 className="font-semibold">{mine ? "Twoja ocena" : "Oceń ten produkt"}</h2>
-        <RatingEditor key={`${product.id}-${mine?.updatedAt ?? "none"}`} productId={product.id} current={mine} />
+        <RatingEditor
+          key={`${product.id}-${mine?.updatedAt ?? "none"}-${skippedByMe}`}
+          productId={product.id}
+          current={mine}
+          skipped={skippedByMe}
+        />
       </section>
 
       {nutrition.length > 0 && (

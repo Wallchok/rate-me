@@ -31,6 +31,7 @@ export async function GET() {
         ratings: {
           select: { personId: true, score: true, note: true, updatedAt: true },
         },
+        skips: { select: { personId: true } },
       },
     }),
   ]);
@@ -48,8 +49,9 @@ export async function GET() {
     meId: session.personId,
     persons,
     categories,
-    products: products.map((p) => ({
+    products: products.map(({ skips, ...p }) => ({
       ...p,
+      skippedBy: skips.map((s) => s.personId),
       createdAt: p.createdAt.toISOString(),
       ratings: p.ratings.map((r) => ({ ...r, updatedAt: r.updatedAt.toISOString() })),
     })),

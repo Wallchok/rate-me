@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseId, readJson } from "@/lib/http";
 import { getPersonId, isNotFound, isUniqueViolation, unauthorized } from "@/lib/session";
 import { parseProductInput } from "@/lib/product-input";
+import { deleteBlobPhoto } from "@/lib/blob";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -16,6 +17,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   if (typeof input === "string") return NextResponse.json({ error: input }, { status: 400 });
 
   const { newCategory, categoryId, ...fields } = input;
+  const before = await prisma.product.findUnique({ where: { id }, select: { imageUrl: true } });
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -26,6 +28,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       await tx.product.update({ where: { id: id }, data: { ...fields, categoryId: category.id } });
     });
+    // Replaced or removed own photo: drop the old file
+    if (before?.imageUrl && before.imageUrl !== fields.imageUrl) await deleteBlobPhoto(before.imageUrl);
     return NextResponse.json({ ok: true });
   } catch (error) {
     if ((error as Error).message === "CATEGORY_NOT_FOUND") {
@@ -46,7 +50,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const id = parseId((await params).id);
   if (!id) return NextResponse.json({ error: "Nie znaleziono" }, { status: 404 });
   try {
-    await prisma.product.delete({ where: { id: id } });
+    const product = await prisma.product.delete({ where: { id: id } });
+    await deleteBlobPhoto(product.imageUrl);
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isNotFound(error)) return NextResponse.json({ error: "Nie ma takiego produktu" }, { status: 404 });

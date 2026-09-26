@@ -1,9 +1,13 @@
 // Offline support: app screens and their files are cached, household data lives in localStorage.
-// Photos from Vercel Blob and Open Food Facts are on other domains and only in the normal browser cache.
+// Product photos from Open Food Facts are cached too; own photos in Vercel Blob only in the browser cache.
 const CACHE = "rateme-v3";
+const IMAGE_CACHE = "rateme-images-v1";
+const IMAGE_HOST = "images.openfoodfacts.org";
+const MAX_IMAGES = 400;
 const SHELL = ["/", "/category", "/product", "/add", "/try", "/settings"];
 const SCANNER_WASM = "/zxing/zxing_reader.wasm";
-const NAV_TIMEOUT_MS = 4000;
+// Weak signal in a shop: give the network this long before falling back
+const RSC_TIMEOUT_MS = 2500;
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -11,7 +15,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMAGE_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -38,9 +42,10 @@ async function cacheIfMissing(cache, url) {
 
 // Stores every screen together with the JS/CSS it needs. Next only prefetches files of links
 // visible on screen, so without this a product page opened offline would stay blank.
-async function warm() {
+async function warm(withScanner) {
   const cache = await caches.open(CACHE);
-  const assets = new Set([SCANNER_WASM]);
+  // The page may fetch the scanner before this worker controls it (first visit), so fetch it here too
+  const assets = new Set(withScanner ? [SCANNER_WASM] : []);
   await Promise.all(
     SHELL.map(async (path) => {
       const res = await fetch(path, { credentials: "same-origin" });
@@ -54,32 +59,68 @@ async function warm() {
 }
 
 self.addEventListener("message", (event) => {
-  if (event.data === "warm") event.waitUntil(warm().catch(() => {}));
+  const data = event.data || {};
+  if (data.type === "warm") event.waitUntil(warm(data.scanner === true).catch(() => {}));
 });
+
+// Keeps the photo cache bounded; keys come back in insertion order, oldest first
+async function trimImages() {
+  const cache = await caches.open(IMAGE_CACHE);
+  const keys = await cache.keys();
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - MAX_IMAGES)).map((k) => cache.delete(k)));
+}
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/")) return;
+  if (request.method !== "GET") return;
 
-  // Page navigation: network first, but with weak signal fall back to the cached copy after a few seconds
-  if (request.mode === "navigate") {
-    const key = pageKey(request.url);
+  // Open Food Facts photos: cache first. They are requested with CORS (crossorigin on <img>),
+  // so the cache stores real responses instead of opaque ones that count as megabytes each.
+  if (url.hostname === IMAGE_HOST) {
+    if (request.mode !== "cors") return;
     event.respondWith(
-      (async () => {
-        const network = fetch(request).then((res) => cachePage(key, res));
-        const cached = await caches.match(key);
-        if (!cached) return network.catch(async () => (await caches.match("/")) || Response.error());
-        const timeout = new Promise((resolve) => setTimeout(() => resolve(cached), NAV_TIMEOUT_MS));
-        return Promise.race([network.catch(() => cached), timeout]);
-      })()
+      caches.open(IMAGE_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        const res = await fetch(request);
+        if (res.ok) {
+          await cache.put(request, res.clone());
+          trimImages();
+        }
+        return res;
+      })
     );
     return;
   }
 
-  // Next.js client navigation payloads: network only. On failure Next falls back to a full page load.
-  if (request.headers.get("RSC") === "1") return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  // Screens are static, the data comes from localStorage: show the cached screen at once
+  // and refresh it in the background, so weak signal never delays opening the app.
+  if (request.mode === "navigate") {
+    const key = pageKey(request.url);
+    const network = fetch(request).then((res) => cachePage(key, res));
+    event.respondWith(
+      caches.match(key).then(
+        (cached) => cached || network.catch(async () => (await caches.match("/")) || Response.error())
+      )
+    );
+    event.waitUntil(network.catch(() => {}));
+    return;
+  }
+
+  // Next.js client navigation payloads: network with a time limit. On failure Next falls back
+  // to a full page load, which the navigation branch above serves from the cache.
+  if (request.headers.get("RSC") === "1") {
+    event.respondWith(
+      Promise.race([
+        fetch(request),
+        new Promise((resolve) => setTimeout(() => resolve(Response.error()), RSC_TIMEOUT_MS)),
+      ]).catch(() => Response.error())
+    );
+    return;
+  }
 
   // Hashed build files, icons, scanner, locally uploaded photos: cache first
   if (

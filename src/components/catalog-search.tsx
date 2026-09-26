@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ImageIcon, Loader2, Search } from "lucide-react"
 import { normalizeEan } from "@/lib/ean"
+import { imageCrossOrigin } from "@/lib/image-cors"
 import type { OffSearchHit, Product } from "@/lib/types"
 import { Input } from "@/components/ui/input"
 
@@ -84,7 +85,7 @@ export function CatalogSearch({ products, onPick }: { products: Product[]; onPic
                 <div className="flex items-center gap-3 p-2.5">
                   {hit.thumbUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- Open Food Facts thumbnail
-                    <img src={hit.thumbUrl} alt="" loading="lazy" className="size-12 shrink-0 rounded-lg bg-white object-contain" />
+                    <img src={hit.thumbUrl} crossOrigin={imageCrossOrigin(hit.thumbUrl)} alt="" loading="lazy" className="size-12 shrink-0 rounded-lg bg-white object-contain" />
                   ) : (
                     <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted">
                       <ImageIcon className="size-5 text-muted-foreground/40" />

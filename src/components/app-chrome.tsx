@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Plus, Settings, ShoppingBasket, Sparkles, WifiOff } from "lucide-react"
+import { ArrowLeft, Loader2, Plus, ServerCrash, Settings, ShoppingBasket, Sparkles, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { sync, useStore } from "@/lib/store"
 import { preloadScanner } from "@/components/barcode-scanner"
@@ -40,7 +40,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     if (status !== "ok" || warmed) return
     warmed = true
     // ready also covers the very first visit, before the worker controls the page
-    navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage("warm"))
+    // Scanner file only where there is no native barcode reader (iPhone)
+    const scanner = !(globalThis as { BarcodeDetector?: unknown }).BarcodeDetector
+    navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage({ type: "warm", scanner }))
     preloadScanner()
   }, [status])
 
@@ -94,7 +96,7 @@ export function PageHeader({
         {back && (
           <button
             onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
-            className="-ml-2 flex size-10 items-center justify-center rounded-full active:bg-muted"
+            className="-ml-2 flex size-11 items-center justify-center rounded-full active:bg-muted"
             aria-label="Wróć"
           >
             <ArrowLeft className="size-5" />
@@ -103,10 +105,10 @@ export function PageHeader({
         <h1 className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">{title}</h1>
         {actions}
       </div>
-      {status === "offline" && data && (
+      {(status === "offline" || status === "error") && data && (
         <div className="flex items-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs text-amber-800 dark:text-amber-300">
-          <WifiOff className="size-3.5" />
-          Bez internetu, dane z{" "}
+          {status === "offline" ? <WifiOff className="size-3.5" /> : <ServerCrash className="size-3.5" />}
+          {status === "offline" ? "Bez internetu" : "Serwer ma problem"}, dane z{" "}
           {new Date(data.syncedAt).toLocaleString("pl-PL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
         </div>
       )}
@@ -118,6 +120,15 @@ export function PageHeader({
 export function WithData({ children }: { children: (data: SyncData) => React.ReactNode }) {
   const { data, status } = useStore()
   if (data) return <>{children(data)}</>
+  if (status === "error") {
+    return (
+      <div className="flex flex-col items-center gap-2 px-6 py-20 text-center">
+        <ServerCrash className="size-8 text-muted-foreground" />
+        <p className="font-medium">Serwer ma problem</p>
+        <p className="text-sm text-muted-foreground">To nie Twój internet. Spróbuj za kilka minut.</p>
+      </div>
+    )
+  }
   if (status === "offline") {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-20 text-center">

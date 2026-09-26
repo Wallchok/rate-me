@@ -9,10 +9,24 @@ export function personColor(persons: Person[], personId: number) {
   return PERSON_COLORS[(idx < 0 ? 0 : idx) % PERSON_COLORS.length]
 }
 
+// -700 shades keep 4.5:1 contrast on the light background, readable in a bright shop
 export function scoreTone(score: number) {
-  if (score >= LIKE_FROM) return "text-emerald-600 dark:text-emerald-400"
-  if (score > AVOID_UP_TO) return "text-amber-600 dark:text-amber-400"
-  return "text-red-600 dark:text-red-400"
+  if (score >= LIKE_FROM) return "text-emerald-700 dark:text-emerald-400"
+  if (score > AVOID_UP_TO) return "text-amber-700 dark:text-amber-400"
+  return "text-red-700 dark:text-red-400"
+}
+
+// One letter, or two when first letters clash: Maciej and Magda become "Mc" and "Mg"
+export function initials(persons: Person[], person: Person) {
+  const first = (p: Person) => p.name.trim().charAt(0).toUpperCase()
+  const group = persons.filter((p) => first(p) === first(person))
+  if (group.length < 2) return first(person)
+  const maxLength = Math.max(...group.map((p) => p.name.trim().length))
+  for (let k = 1; k < maxLength; k++) {
+    const pick = (p: Person) => first(p) + (p.name.trim().charAt(k) || "").toLowerCase()
+    if (new Set(group.map(pick)).size === group.length) return pick(person)
+  }
+  return first(person) + (group.findIndex((p) => p.id === person.id) + 1)
 }
 
 export function scoreBg(score: number) {
@@ -33,13 +47,13 @@ export function PersonAvatar({
   return (
     <span
       className={cn(
-        "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white",
+        "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-0.5 text-[10px] font-bold text-white",
         personColor(persons, person.id),
         className
       )}
       aria-hidden
     >
-      {person.name.charAt(0).toUpperCase()}
+      {initials(persons, person)}
     </span>
   )
 }
@@ -61,9 +75,13 @@ export function ScoreChips({ product, persons }: { product: Product; persons: Pe
           >
             <PersonAvatar persons={persons} person={person} />
             {r ? (
-              <span className={scoreTone(r.score)}>{r.score}</span>
+              <span className={scoreTone(r.score)} aria-hidden>
+                {r.score}
+              </span>
             ) : (
-              <span className="text-muted-foreground font-normal">-</span>
+              <span className="text-muted-foreground font-normal" aria-hidden>
+                -
+              </span>
             )}
             <span className="sr-only">
               {person.name}: {r ? r.score : "brak oceny"}

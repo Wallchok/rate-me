@@ -37,7 +37,7 @@ function NotFound() {
 function Ranking({ data, categoryId }: { data: SyncData; categoryId: number }) {
   const { forWhom: stored } = useStore();
   const forWhom = resolveForWhom(stored, data.persons);
-  const { ranked, avoid, untried } = useMemo(
+  const { best, maybe, avoid, untried } = useMemo(
     () => rankProducts(data.products.filter((p) => p.categoryId === categoryId), data.persons, forWhom),
     [data, categoryId, forWhom]
   );
@@ -49,15 +49,24 @@ function Ranking({ data, categoryId }: { data: SyncData; categoryId: number }) {
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-muted-foreground">{rankingTitle(forWhom, data.persons)}</h2>
-        {ranked.length === 0 && (
+        {best.length === 0 && (
           <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-            Brak produktów, które można śmiało kupić. Oceńcie coś z tej kategorii.
+            Nie ma tu jeszcze nic ocenionego na 7 albo więcej.
           </p>
         )}
-        {ranked.map((item, i) => (
+        {best.map((item, i) => (
           <ProductRow key={item.product.id} product={item.product} persons={data.persons} rank={i + 1} />
         ))}
       </section>
+
+      {maybe.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Może być (5-6)</h2>
+          {maybe.map((item) => (
+            <ProductRow key={item.product.id} product={item.product} persons={data.persons} />
+          ))}
+        </section>
+      )}
 
       {untried.length > 0 && (
         <section className="space-y-2">

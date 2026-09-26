@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ImageIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { imageCrossOrigin } from "@/lib/image-cors"
 import { verdict } from "@/lib/ranking"
 import type { Person, Product } from "@/lib/types"
 import { ScoreChips } from "@/components/person-badge"
@@ -17,6 +18,7 @@ export function ProductThumb({ product, className }: { product: Product; classNa
     // eslint-disable-next-line @next/next/no-img-element -- images come from Blob/OFF, next/image would need remote config and does not work offline
     <img
       src={product.imageUrl}
+      crossOrigin={imageCrossOrigin(product.imageUrl)}
       alt=""
       loading="lazy"
       className={cn("rounded-lg bg-white object-contain", className)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ratingOf } from "@/lib/ranking";
+import { hasSkipped, ratingOf } from "@/lib/ranking";
 import type { Product, SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
 import { ProductRow } from "@/components/product-row";
@@ -21,8 +21,8 @@ const maxScore = (p: Product) => Math.max(0, ...p.ratings.map((r) => r.score));
 // Products only part of the household has rated: "taste it and rate it"
 function TryLists({ data }: { data: SyncData }) {
   const forMe = useMemo(
-    // Includes products nobody has rated yet, e.g. added without a rating
-    () => data.products.filter((p) => !ratingOf(p, data.meId)).sort(bestFirst),
+    // Includes products nobody has rated yet, e.g. added without a rating; not the ones you skip
+    () => data.products.filter((p) => !ratingOf(p, data.meId) && !hasSkipped(p, data.meId)).sort(bestFirst),
     [data]
   );
   const forOthers = useMemo(
@@ -31,7 +31,9 @@ function TryLists({ data }: { data: SyncData }) {
         .filter((person) => person.id !== data.meId)
         .map((person) => ({
         person,
-        products: data.products.filter((p) => p.ratings.length > 0 && !ratingOf(p, person.id)).sort(bestFirst),
+        products: data.products
+          .filter((p) => p.ratings.length > 0 && !ratingOf(p, person.id) && !hasSkipped(p, person.id))
+          .sort(bestFirst),
       })),
     [data]
   );
@@ -42,7 +44,9 @@ function TryLists({ data }: { data: SyncData }) {
     <main className="space-y-6 px-4 pb-6">
       {empty && (
         <p className="py-16 text-center text-sm text-muted-foreground">
-          Wszystko, co macie w bazie, zostało ocenione przez wszystkich.
+          {data.products.length === 0
+            ? "Nie macie jeszcze żadnych produktów. Dodaj pierwszy przyciskiem „Dodaj”."
+            : "Nic nie czeka na ocenę."}
         </p>
       )}
 

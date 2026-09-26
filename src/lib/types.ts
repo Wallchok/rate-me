@@ -31,6 +31,8 @@ export interface Product {
   fat: number | null;
   createdAt: string;
   ratings: Rating[];
+  // People who chose not to rate it
+  skippedBy: number[];
 }
 
 export interface SyncData {

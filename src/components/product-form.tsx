@@ -5,6 +5,7 @@ import { Camera, ChevronDown, ImageIcon, Loader2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { compressImage } from "@/lib/image"
+import { imageCrossOrigin } from "@/lib/image-cors"
 import type { Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -209,7 +210,7 @@ export function ProductForm({
         {v.imageUrl ? (
           <div className="relative overflow-hidden rounded-xl border bg-white">
             {/* eslint-disable-next-line @next/next/no-img-element -- preview of Blob/OFF image */}
-            <img src={v.imageUrl} alt="Podgląd" className="mx-auto max-h-48 object-contain" />
+            <img src={v.imageUrl} crossOrigin={imageCrossOrigin(v.imageUrl)} alt="Podgląd" className="mx-auto max-h-48 object-contain" />
             <button
               type="button"
               onClick={() => update({ imageUrl: "" })}

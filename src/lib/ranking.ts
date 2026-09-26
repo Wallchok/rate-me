@@ -6,7 +6,7 @@ export const AVOID_UP_TO = 4;
 
 export interface Ranked {
   product: Product;
-  // Everyone in the household has rated it
+  // Everyone who rates it has rated it (people who skipped it do not count)
   complete: boolean;
   // Sort value: lowest score among raters ("all") or the person's own score
   key: number;
@@ -14,9 +14,11 @@ export interface Ranked {
 }
 
 export interface CategoryRanking {
-  // Best first, safe to buy
-  ranked: Ranked[];
-  // Someone disliked it
+  // Worth buying: 7 or more, best first
+  best: Ranked[];
+  // 5-6: fine, but nobody is excited
+  maybe: Ranked[];
+  // Someone disliked it (4 or less)
   avoid: Ranked[];
   // Nobody (or the chosen person) has rated it yet
   untried: Ranked[];
@@ -24,6 +26,10 @@ export interface CategoryRanking {
 
 export function ratingOf(product: Product, personId: number): Rating | undefined {
   return product.ratings.find((r) => r.personId === personId);
+}
+
+export function hasSkipped(product: Product, personId: number) {
+  return (product.skippedBy ?? []).includes(personId);
 }
 
 export function isAvoided(r: Rating) {
@@ -35,14 +41,18 @@ function householdRatings(product: Product, persons: Person[]) {
   return product.ratings.filter((r) => ids.has(r.personId));
 }
 
+// People whose rating the product still waits for
+export function waitingFor(product: Product, persons: Person[]) {
+  return persons.filter((p) => !ratingOf(product, p.id) && !hasSkipped(product, p.id));
+}
+
 function toRanked(product: Product, persons: Person[], forWhom: ForWhom): Ranked {
-  const ratings = householdRatings(product, persons);
-  const scores = ratings.map((r) => r.score);
+  const scores = householdRatings(product, persons).map((r) => r.score);
   const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
   const own = forWhom === "all" ? undefined : ratingOf(product, forWhom);
   return {
     product,
-    complete: ratings.length === persons.length,
+    complete: waitingFor(product, persons).length === 0,
     // "all": the product that nobody minds wins, not the one one person loves
     key: forWhom === "all" ? (scores.length ? Math.min(...scores) : 0) : (own?.score ?? 0),
     avg,
@@ -50,30 +60,36 @@ function toRanked(product: Product, persons: Person[], forWhom: ForWhom): Ranked
 }
 
 export function rankProducts(products: Product[], persons: Person[], forWhom: ForWhom): CategoryRanking {
-  const result: CategoryRanking = { ranked: [], avoid: [], untried: [] };
+  const result: CategoryRanking = { best: [], maybe: [], avoid: [], untried: [] };
 
   for (const product of products) {
     const item = toRanked(product, persons, forWhom);
     const ratings = householdRatings(product, persons);
 
     if (forWhom === "all") {
-      if (ratings.length === 0) result.untried.push(item);
-      else if (ratings.some(isAvoided)) result.avoid.push(item);
-      else result.ranked.push(item);
+      if (ratings.length === 0) {
+        // Skipped by everyone: nothing to show for the household
+        if (waitingFor(product, persons).length > 0) result.untried.push(item);
+      } else if (ratings.some(isAvoided)) result.avoid.push(item);
+      else if (item.key >= LIKE_FROM) result.best.push(item);
+      else result.maybe.push(item);
     } else {
       const own = ratingOf(product, forWhom);
-      if (!own) result.untried.push(item);
-      else if (isAvoided(own)) result.avoid.push(item);
-      else result.ranked.push(item);
+      if (!own) {
+        if (!hasSkipped(product, forWhom)) result.untried.push(item);
+      } else if (isAvoided(own)) result.avoid.push(item);
+      else if (own.score >= LIKE_FROM) result.best.push(item);
+      else result.maybe.push(item);
     }
   }
 
-  result.ranked.sort((a, b) =>
+  const byScore = (a: Ranked, b: Ranked) =>
     forWhom === "all"
-      ? // Rated by everyone first: a 10 from one person says less than 8 and 7 from both
+      ? // Rated by everyone first: 8 and 7 from both says more than a 10 from one person
         Number(b.complete) - Number(a.complete) || b.key - a.key || b.avg - a.avg
-      : b.key - a.key || b.avg - a.avg,
-  );
+      : b.key - a.key || b.avg - a.avg;
+  result.best.sort(byScore);
+  result.maybe.sort(byScore);
   result.avoid.sort((a, b) => a.key - b.key);
   result.untried.sort((a, b) => b.avg - a.avg || a.product.name.localeCompare(b.product.name, "pl"));
   return result;
@@ -83,25 +99,28 @@ export function rankProducts(products: Product[], persons: Person[], forWhom: Fo
 export function verdict(product: Product, persons: Person[]): { text: string; tone: "good" | "bad" | "neutral" } {
   const ratings = householdRatings(product, persons);
   const nameOf = (id: number) => persons.find((p) => p.id === id)?.name ?? "?";
+  const names = (rs: Rating[]) => rs.map((r) => nameOf(r.personId)).join(", ");
 
-  const disliked = ratings.filter((r) => r.score <= AVOID_UP_TO);
+  const disliked = ratings.filter(isAvoided);
   if (disliked.length) {
     return {
-      text: disliked.length === persons.length ? "Nikomu nie smakuje" : `Nie smakuje: ${disliked.map((r) => nameOf(r.personId)).join(", ")}`,
+      text: disliked.length === ratings.length && ratings.length > 1 ? "Nikomu nie smakuje" : `Nie smakuje: ${names(disliked)}`,
       tone: "bad",
     };
   }
 
-  const missing = persons.filter((p) => !ratings.some((r) => r.personId === p.id));
-  if (ratings.length === 0) return { text: "Jeszcze nieoceniony", tone: "neutral" };
+  const missing = waitingFor(product, persons);
+  if (ratings.length === 0) return { text: missing.length ? "Jeszcze nieoceniony" : "Wszyscy pomijają", tone: "neutral" };
   if (missing.length) return { text: `Czeka na: ${missing.map((p) => p.name).join(", ")}`, tone: "neutral" };
 
-  if (ratings.every((r) => r.score >= LIKE_FROM)) {
-    return { text: persons.length === 1 ? "Lubisz" : "Smakuje wszystkim", tone: "good" };
-  }
   const liked = ratings.filter((r) => r.score >= LIKE_FROM);
-  if (liked.length) return { text: `Lubi: ${liked.map((r) => nameOf(r.personId)).join(", ")}`, tone: "neutral" };
-  return { text: "Tak sobie", tone: "neutral" };
+  if (liked.length === ratings.length) {
+    // Only say "everyone" when nobody skipped it
+    const everyone = ratings.length === persons.length && persons.length > 1;
+    return { text: everyone ? "Smakuje wszystkim" : persons.length === 1 ? "Lubisz" : `Lubi: ${names(liked)}`, tone: "good" };
+  }
+  if (liked.length) return { text: `Lubi: ${names(liked)}`, tone: "neutral" };
+  return { text: "Może być", tone: "neutral" };
 }
 
 // Heading of the category ranking, gender-neutral on purpose
@@ -113,4 +132,9 @@ export function rankingTitle(forWhom: ForWhom, persons: Person[]) {
 // Falls back to "all" when the remembered person no longer exists
 export function resolveForWhom(forWhom: ForWhom, persons: Person[]): ForWhom {
   return forWhom !== "all" && persons.some((p) => p.id === forWhom) ? forWhom : "all";
+}
+
+// Whole list in shopping order: worth buying, fine, not rated yet, avoid
+export function inShoppingOrder(r: CategoryRanking): Ranked[] {
+  return [...r.best, ...r.maybe, ...r.untried, ...r.avoid];
 }

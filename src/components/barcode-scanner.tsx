@@ -20,22 +20,28 @@ async function createDetector(): Promise<Detector> {
     const supported = await Native.getSupportedFormats()
     if (supported.includes("ean_13")) return new Native({ formats: FORMATS })
   }
-  const { BarcodeDetector, prepareZXingModule } = await import("barcode-detector/ponyfill")
-  // Served from our own origin (copied on npm install), so it works without a CDN.
-  // Loaded now, so a missing file shows up as an error instead of a silent camera view.
-  await prepareZXingModule({
+  const { BarcodeDetector } = await loadZXing()
+  return new BarcodeDetector({ formats: FORMATS as never[] })
+}
+
+// ZXing code and its .wasm, served from our own origin (copied on npm install), so it works without a CDN.
+// Loaded eagerly, so a missing file shows up as an error instead of a silent camera view.
+async function loadZXing() {
+  const ponyfill = await import("barcode-detector/ponyfill")
+  await ponyfill.prepareZXingModule({
     overrides: {
       locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? `/zxing/${path}` : prefix + path),
     },
     fireImmediately: true,
   })
-  return new BarcodeDetector({ formats: FORMATS as never[] })
+  return ponyfill
 }
 
-// Loads the scanner code early (while online), so it also works in a shop without signal
+// Loads the scanner early (while online), so it also works in a shop without signal.
+// Only where the browser has no native scanner (iPhone); Android does not need the 1.1 MB file.
 export function preloadScanner() {
   if (!(globalThis as { BarcodeDetector?: unknown }).BarcodeDetector) {
-    import("barcode-detector/ponyfill").catch(() => {})
+    loadZXing().catch(() => {})
   }
 }
 

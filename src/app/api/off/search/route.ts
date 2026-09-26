@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPersonId, unauthorized } from "@/lib/session";
 import type { OffSearchHit } from "@/lib/types";
+import { fold } from "@/lib/text";
 
 const FIELDS = ["code", "product_name", "brands", "quantity", "image_front_small_url"].join(",");
-
-// Lowercase without Polish diacritics, so "piatnica" matches "Piątnica"
-function fold(text: string) {
-  return text.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/ł/g, "l");
-}
 
 // Searches Polish products in Open Food Facts by name; full data is fetched per barcode after picking one
 export async function GET(request: NextRequest) {

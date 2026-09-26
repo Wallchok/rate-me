@@ -42,10 +42,10 @@ function Settings({ data }: { data: SyncData }) {
       <section className="flex items-center gap-3 rounded-2xl border p-4">
         {me && <PersonAvatar persons={data.persons} person={me} className="size-10 text-base" />}
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">Zalogowany na tym telefonie</p>
+          <p className="text-xs text-muted-foreground">Na tym telefonie:</p>
           <p className="truncate font-semibold">{me?.name}</p>
         </div>
-        <Link href="/login?switch=1" className={buttonVariants({ variant: "outline", size: "sm" })}>
+        <Link href="/login?switch=1" className={buttonVariants({ variant: "outline", className: "h-11 px-3" })}>
           <UserRound className="size-4" />
           Zmień
         </Link>

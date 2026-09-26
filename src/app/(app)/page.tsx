@@ -7,7 +7,8 @@ import { ChevronRight, ScanBarcode, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { normalizeEan } from "@/lib/ean";
-import { rankProducts, resolveForWhom } from "@/lib/ranking";
+import { inShoppingOrder, rankProducts, resolveForWhom } from "@/lib/ranking";
+import { fold } from "@/lib/text";
 import type { ForWhom } from "@/lib/store";
 import type { SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
@@ -41,7 +42,7 @@ export default function HomePage() {
       <PageHeader
         title="Co kupić?"
         actions={
-          <Button variant="ghost" size="icon" className="size-10" onClick={() => setScanOpen(true)} aria-label="Skanuj produkt">
+          <Button variant="ghost" size="icon" className="size-11" onClick={() => setScanOpen(true)} aria-label="Skanuj produkt">
             <ScanBarcode className="size-5" />
           </Button>
         }
@@ -58,12 +59,20 @@ function Home({ data }: { data: SyncData }) {
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = fold(query.trim());
     if (!q) return null;
-    return data.products.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.brand?.toLowerCase().includes(q) || (/^\d{8,14}$/.test(q) && p.ean === normalizeEan(q))
+    const categoryName = new Map(data.categories.map((c) => [c.id, fold(c.name)]));
+    const found = data.products.filter(
+      (p) =>
+        fold(p.name).includes(q) ||
+        (p.brand && fold(p.brand).includes(q)) ||
+        categoryName.get(p.categoryId)?.includes(q) ||
+        (/^\d{8,14}$/.test(q) && p.ean === normalizeEan(q))
     );
-  }, [query, data.products]);
+    // Best to buy first, for whoever is selected in the switch; skipped ones at the end
+    const ordered = inShoppingOrder(rankProducts(found, data.persons, forWhom)).map((r) => r.product);
+    return [...ordered, ...found.filter((p) => !ordered.includes(p))];
+  }, [query, data, forWhom]);
 
   return (
     <main className="space-y-4 px-4 pb-6">
@@ -133,7 +142,10 @@ function CategoryList({ data, forWhom }: { data: SyncData; forWhom: ForWhom }) {
   return (
     <div className="space-y-2">
       {groups.map(({ category, count, ranking }) => {
-        const best = ranking.ranked[0]?.product;
+        const top = ranking.best[0] ?? ranking.maybe[0];
+        const best = top?.product;
+        const onlyMaybe = !ranking.best.length;
+        const avoidNames = ranking.avoid.map((r) => r.product.name);
         return (
           <Link
             key={category.id}
@@ -152,7 +164,11 @@ function CategoryList({ data, forWhom }: { data: SyncData; forWhom: ForWhom }) {
                 <ProductThumb product={best} className="size-12 shrink-0" />
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="truncate text-sm font-medium">
-                    <span className="mr-1 text-amber-500">★</span>
+                    {onlyMaybe ? (
+                      <span className="mr-1 text-muted-foreground">Może być:</span>
+                    ) : (
+                      <span className="mr-1 text-amber-500">★</span>
+                    )}
                     {best.name}
                   </p>
                   <ScoreChips product={best} persons={data.persons} />
@@ -161,6 +177,12 @@ function CategoryList({ data, forWhom }: { data: SyncData; forWhom: ForWhom }) {
             ) : (
               <p className="text-sm text-muted-foreground">
                 {ranking.avoid.length > 0 ? "Nic tu jeszcze nie przypadło do gustu" : "Czeka na ocenę"}
+              </p>
+            )}
+            {avoidNames.length > 0 && (best || avoidNames.length > 1) && (
+              <p className="mt-2 truncate text-xs font-medium text-red-700 dark:text-red-400">
+                Nie brać: {avoidNames.slice(0, 2).join(", ")}
+                {avoidNames.length > 2 && ` i ${avoidNames.length - 2} więcej`}
               </p>
             )}
           </Link>

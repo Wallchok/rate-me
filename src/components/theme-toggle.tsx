@@ -1,21 +1,31 @@
 "use client"
 
-import { Moon, Sun } from "lucide-react"
+import { useSyncExternalStore } from "react"
+import { Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 
+const NEXT = { system: "light", light: "dark", dark: "system" } as const
+const LABEL = { system: "Motyw: jak w telefonie", light: "Motyw: jasny", dark: "Motyw: ciemny" } as const
+
+// Cycles light, dark and back to following the phone setting
 export function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
+  // The saved theme is only known in the browser; render the neutral icon until then
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const current = (mounted && (theme === "light" || theme === "dark") ? theme : "system") as keyof typeof NEXT
+  const Icon = current === "light" ? Sun : current === "dark" ? Moon : Monitor
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      aria-label="Zmień motyw"
+      className="size-11"
+      onClick={() => setTheme(NEXT[current])}
+      aria-label={`${LABEL[current]}. Zmień`}
+      title={LABEL[current]}
     >
-      <Sun className="size-4 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-      <Moon className="absolute size-4 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+      <Icon className="size-5" />
     </Button>
   )
 }

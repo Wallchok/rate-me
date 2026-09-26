@@ -12,6 +12,7 @@ model Person {
   name      String   @unique
   createdAt DateTime @default(now())
   ratings   Rating[]
+  skips     Skip[]
 }
 
 model Category {
@@ -39,6 +40,7 @@ model Product {
 
   category Category @relation(fields: [categoryId], references: [id])
   ratings  Rating[]
+  skips    Skip[]
 }
 
 model Rating {
@@ -49,6 +51,19 @@ model Rating {
   personId     Int
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, personId])
+}
+
+// "I will not rate this": the product stops waiting for this person's rating
+model Skip {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  personId  Int
+  createdAt DateTime @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   person  Person  @relation(fields: [personId], references: [id], onDelete: Cascade)

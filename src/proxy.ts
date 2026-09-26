@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
   const isApi = pathname.startsWith("/api/");
 
-  if (pathname === "/api/auth/login") return NextResponse.next();
+  if (pathname === "/api/auth/login" || pathname === "/api/health") return NextResponse.next();
 
   if (pathname === "/login") {
     // Fully logged in users go home, unless they want to switch person
