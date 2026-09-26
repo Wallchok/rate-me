@@ -1,5 +1,6 @@
 import type { Person, Product, Rating } from "@/lib/types";
 import type { ForWhom } from "@/lib/store";
+import { fold } from "@/lib/text";
 
 export const LIKE_FROM = 7;
 export const AVOID_UP_TO = 4;
@@ -137,4 +138,28 @@ export function resolveForWhom(forWhom: ForWhom, persons: Person[]): ForWhom {
 // Whole list in shopping order: worth buying, fine, not rated yet, avoid
 export function inShoppingOrder(r: CategoryRanking): Ranked[] {
   return [...r.best, ...r.maybe, ...r.untried, ...r.avoid];
+}
+
+// Best-rated household product matching a free-text shopping item ("jogurt", "chleb"):
+// by product name or brand, then by category name; ignores Polish diacritics.
+export function bestMatch(text: string, products: Product[], categories: { id: number; name: string }[], persons: Person[]) {
+  const q = fold(text.trim());
+  if (q.length < 3) return null;
+  const words = q.split(/\s+/).filter((w) => w.length >= 3);
+  const matches = (value: string, needle: string) => fold(value).includes(needle);
+  // Name, brand and category together: "jogurt" must also find a skyr from "Jogurty", and the ranking picks
+  const find = (needle: string) => {
+    const ids = new Set(categories.filter((c) => matches(c.name, needle)).map((c) => c.id));
+    return products.filter(
+      (p) => matches(p.name, needle) || (p.brand && matches(p.brand, needle)) || ids.has(p.categoryId)
+    );
+  };
+  let candidates = find(q);
+  for (const w of words) {
+    if (candidates.length) break;
+    candidates = find(w);
+  }
+  if (!candidates.length) return null;
+  const r = rankProducts(candidates, persons, "all");
+  return r.best[0]?.product ?? r.maybe[0]?.product ?? null;
 }

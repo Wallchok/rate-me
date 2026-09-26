@@ -34,7 +34,12 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     const onOnline = () => sync()
     document.addEventListener("visibilitychange", onVisible)
     window.addEventListener("online", onOnline)
+    // While the app is on screen, pick up changes from the other phone (list, ratings) every 15 s
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine) sync()
+    }, 15000)
     return () => {
+      clearInterval(timer)
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("online", onOnline)
     }
@@ -67,7 +72,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-lg items-stretch justify-around">
           {NAV.map(({ href, label, icon: Icon, primary }) => {
             const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href) || (href === "/settings" && pathname === "/changelog")
+              href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(href) ||
+                  (href === "/settings" && pathname === "/changelog") ||
+                  (href === "/try" && pathname === "/taste")
             const dot = href === "/settings" && hasNew
             const count = href === "/list" ? toBuy : 0
             return (

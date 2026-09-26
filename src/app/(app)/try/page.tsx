@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
+import { ChevronRight, HeartHandshake } from "lucide-react";
 import { hasSkipped, ratingOf } from "@/lib/ranking";
 import type { Product, SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
@@ -42,6 +44,16 @@ function TryLists({ data }: { data: SyncData }) {
 
   return (
     <main className="space-y-6 px-4 pb-6">
+      {data.persons.length > 1 && (
+        <Link href="/taste" className="flex min-h-14 items-center gap-3 rounded-2xl border bg-primary/5 px-4 active:bg-muted">
+          <HeartHandshake className="size-5 text-primary" />
+          <span className="flex-1">
+            <span className="block font-medium">Gusty</span>
+            <span className="text-xs text-muted-foreground">Na ile się zgadzacie, w czym się różnicie</span>
+          </span>
+          <ChevronRight className="size-4 text-muted-foreground" />
+        </Link>
+      )}
       {empty && (
         <p className="py-16 text-center text-sm text-muted-foreground">
           {data.products.length === 0

@@ -9,6 +9,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.9.0",
+    date: "2026-09-26",
+    title: "Gusty i podpowiedzi na liście",
+    changes: [
+      "Przy pozycji z listy wpisanej słowami, np. „jogurt”, widać Wasz najlepszy pasujący produkt",
+      "Zmiany z drugiego telefonu pojawiają się same po kilkunastu sekundach",
+      "Nowy ekran „Gusty” w zakładce Spróbuj: na ile się zgadzacie, w czym się różnicie, wspólni faworyci i odkrycia miesiąca",
+    ],
+  },
+  {
     version: "0.8.0",
     date: "2026-09-26",
     title: "Gotowe do testów",

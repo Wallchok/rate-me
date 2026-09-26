@@ -6,7 +6,7 @@ import { Check, CloudOff, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { addItem, clearBought, removeItem, setBought } from "@/lib/list";
-import { inShoppingOrder, rankProducts } from "@/lib/ranking";
+import { bestMatch, inShoppingOrder, rankProducts } from "@/lib/ranking";
 import { fold } from "@/lib/text";
 import type { ListItem, SyncData } from "@/lib/types";
 import { PageHeader, WithData } from "@/components/app-chrome";
@@ -137,6 +137,8 @@ function ShoppingList({ data }: { data: SyncData }) {
 function Row({ item, data }: { item: ListItem; data: SyncData }) {
   const done = Boolean(item.boughtAt);
   const product = item.productId ? data.products.find((p) => p.id === item.productId) : undefined;
+  // Written as plain text ("jogurt"): point at the best matching product you have rated
+  const suggestion = !product && !done ? bestMatch(item.text, data.products, data.categories, data.persons) : null;
   const addedBy = data.persons.find((p) => p.id === item.addedById);
   const boughtBy = data.persons.find((p) => p.id === item.boughtById);
   const time = item.boughtAt
@@ -184,6 +186,16 @@ function Row({ item, data }: { item: ListItem; data: SyncData }) {
           )}
           {product && !done && <ScoreChips product={product} persons={data.persons} />}
         </div>
+        {suggestion && (
+          <Link
+            href={`/product?id=${suggestion.id}`}
+            className="mt-1 flex min-h-9 items-center gap-2 rounded-lg bg-primary/5 px-2 py-1 text-xs"
+          >
+            <span className="shrink-0 text-muted-foreground">Najlepszy u Was:</span>
+            <span className="min-w-0 truncate font-medium">{suggestion.name}</span>
+            <ScoreChips product={suggestion} persons={data.persons} />
+          </Link>
+        )}
       </div>
       {!done && (
         <button
