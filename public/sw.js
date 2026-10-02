@@ -133,7 +133,8 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/zxing/") ||
-    url.pathname.startsWith("/uploads/")
+    url.pathname.startsWith("/uploads/") ||
+    url.pathname.startsWith("/photos/")
   ) {
     event.respondWith(
       caches.match(request).then(

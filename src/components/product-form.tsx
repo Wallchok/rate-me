@@ -87,6 +87,8 @@ export function ProductForm({
 }) {
   const [v, setV] = useState(initial)
   const [uploading, setUploading] = useState(false)
+  // Shown under the photo buttons too: a toast can end up behind the edit dialog
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [nutritionOpen, setNutritionOpen] = useState(
     NUTRITION.some(({ key }) => initial[key] !== "") || initial.nutriScore !== ""
@@ -101,25 +103,30 @@ export function ProductForm({
     e.target.value = ""
     if (!file) return
     setUploading(true)
+    setPhotoError(null)
+    const fail = (message: string) => {
+      setPhotoError(message)
+      toast.error(message)
+    }
     try {
       let blob: Blob
       try {
         blob = await compressImage(file)
       } catch {
         // e.g. HEIC outside iOS, the browser cannot decode it
-        toast.error("Nie udało się odczytać zdjęcia. Spróbuj zrobić je aparatem albo wybierz JPG.")
+        fail("Nie udało się odczytać zdjęcia. Spróbuj zrobić je aparatem albo wybierz JPG.")
         return
       }
       const form = new FormData()
       form.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }))
       const res = await fetch("/api/upload", { method: "POST", body: form }).catch(() => null)
       if (!res) {
-        toast.error("Brak połączenia. Zdjęcie można dodać tylko z internetem.")
+        fail("Brak połączenia. Zdjęcie można dodać tylko z internetem.")
         return
       }
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error(json.error || "Nie udało się wysłać zdjęcia")
+        fail(json.error || "Nie udało się wysłać zdjęcia")
         return
       }
       update({ imageUrl: json.url })
@@ -232,6 +239,7 @@ export function ProductForm({
             </Button>
           </div>
         )}
+        {photoError && <p className="text-sm text-red-700 dark:text-red-400">{photoError}</p>}
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} className="hidden" />
         <input ref={galleryRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
       </div>

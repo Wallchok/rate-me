@@ -36,9 +36,15 @@ export async function POST(request: NextRequest) {
 
   // Vercel Blob in production: a connected store gives BLOB_STORE_ID (auth via Vercel OIDC),
   // older setups give BLOB_READ_WRITE_TOKEN. @vercel/blob picks the right one itself.
+  // The store is private: photos are served only to logged-in phones through /photos/...
   if (process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN) {
-    const blob = await put(`products/${filename}`, bytes, { access: "public", contentType: file.type });
-    return NextResponse.json({ url: blob.url });
+    try {
+      await put(`products/${filename}`, bytes, { access: "private", contentType: file.type });
+    } catch (error) {
+      console.error("Blob upload failed", error);
+      return NextResponse.json({ error: "Nie udało się zapisać zdjęcia na serwerze" }, { status: 500 });
+    }
+    return NextResponse.json({ url: `/photos/products/${filename}` });
   }
 
   // Local dev only: Vercel's filesystem is read-only

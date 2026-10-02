@@ -47,7 +47,7 @@ export function parseProductInput(body: Record<string, unknown>): ProductInput |
   const ean = rawEan ? normalizeEan(rawEan) : null;
 
   const imageUrl = optionalText(body.imageUrl, 2000);
-  if (imageUrl && !/^(https:\/\/|\/uploads\/)/.test(imageUrl)) return "Nieprawidłowy adres zdjęcia";
+  if (imageUrl && !/^(https:\/\/|\/uploads\/|\/photos\/products\/)/.test(imageUrl)) return "Nieprawidłowy adres zdjęcia";
 
   const nutriScore = optionalText(body.nutriScore, 100)?.toLowerCase() ?? null;
   if (nutriScore && !/^[a-e]$/.test(nutriScore)) return "Nieprawidłowy Nutri-Score";

@@ -9,6 +9,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.10.1",
+    date: "2026-10-02",
+    title: "Własne zdjęcia działają",
+    changes: [
+      "Zdjęcia z aparatu i z galerii znowu się zapisują",
+      "Zdjęcia widać tylko po zalogowaniu",
+      "Gdy zdjęcie się nie zapisze, komunikat zostaje pod przyciskami",
+    ],
+  },
+  {
     version: "0.10.0",
     date: "2026-09-26",
     title: "Podpowiedzi na liście zakupów",
